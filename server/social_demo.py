@@ -22,6 +22,7 @@ from emotion_demo import COLORS, WARMUP_SECONDS, draw
 from poco.audio import SpeechListener
 from poco.devices import CAMERA, MIC
 from poco.bridge import action_for, event_for, move_seconds
+from poco.robot import Robot
 from poco.social import Coach, Memory, SocialContext
 from poco.voice import Voice
 from poco.vision import EmotionDetector
@@ -59,6 +60,10 @@ def main() -> None:
                     help="build the context but do not call Claude")
     ap.add_argument("--effort", default="low", help="low / medium / high")
     ap.add_argument("--no-voice", action="store_true", help="print Poco's lines instead of speaking them")
+    ap.add_argument("--no-robot", action="store_true",
+                    help="do not drive the servos or belly")
+    ap.add_argument("--gentle", action="store_true",
+                    help="slower, smaller movements (the app's Gentle speed)")
     ap.add_argument("--memory", action="store_true",
                     help="remember facts about the friend between sessions "
                          "(off by default: it stores personal details about "
@@ -81,6 +86,13 @@ def main() -> None:
     voice = None if (args.no_voice or args.no_llm) else Voice(
         style=args.style, stability=args.stability)
     memory = Memory() if (args.memory and not args.no_llm) else None
+    robot = None
+    if not args.no_robot:
+        # Connecting never raises: with nothing plugged in it says so and the
+        # rest of the loop carries on, which is the normal state on a laptop.
+        robot = Robot(speed=0.7 if args.gentle else 1.0,
+                      amount=0.6 if args.gentle else 1.0)
+        robot.connect()
     if memory is not None:
         print(f"memory: {len(memory.all())} fact(s) recalled from previous conversations")
 
@@ -158,6 +170,10 @@ def main() -> None:
                     print(f"\n  POCO {spoken}")
                     print(f"       -> app   {event.to_json()}")
                     print(f"       -> robot {action}  ({move_seconds(action['move']):.1f}s)")
+                    if robot is not None:
+                        # Returns at once; the gesture plays on its own thread
+                        # so the camera keeps its 30 fps view of the face.
+                        robot.perform(suggestion.gesture, suggestion.belly)
                     if suggestion.remember:
                         print(f"       remembers: {suggestion.remember}")
                     print(f"       [{result.latency:.1f}s, {result.input_tokens} in "
@@ -181,6 +197,8 @@ def main() -> None:
         pass
     finally:
         listener.stop()
+        if robot is not None:
+            robot.close()
         pool.shutdown(wait=False)
         cap.release()
         cv2.destroyAllWindows()
