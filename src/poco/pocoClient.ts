@@ -183,13 +183,19 @@ export interface PocoAction {
   say?: string;
 }
 
-/** Something Poco did on their own and reports back (Interacting Mode). */
+/**
+ * Something Poco picked up and decided on their own, reported back (Social
+ * Mode). The app shows it in the teacher's log: what Poco noticed, what they
+ * did, and why.
+ */
 export interface PocoEvent {
   type: 'noticed';
-  /** Built-in emotion id, e.g. "happy". */
+  /** Built-in emotion id of the person Poco is facing, e.g. "happy". */
   feeling: string;
-  /** What Poco said about it, if anything. */
+  /** What Poco said about it, if anything (nothing = stayed quiet, showed it on the belly). */
   said?: string;
+  /** Poco's reason for what they did, in plain words, e.g. "A good moment to practice smiling back." */
+  why?: string;
   /** ms timestamp */
   at: number;
 }
@@ -208,16 +214,23 @@ export interface PocoClient {
   onEvent(listener: (e: PocoEvent) => void): () => void;
 }
 
-// What the mock pretends Poco says when they notice a feeling.
-const MOCK_SAYS: Record<string, string> = {
-  happy: 'You look happy!',
-  sad: 'Are you feeling sad? I am here.',
-  angry: "You look angry. Let's take a deep breath.",
-  worried: "You look worried. It's okay.",
-  surprised: 'Wow, you look surprised!',
-  calm: 'You look nice and calm.',
-  neutral: 'You look okay today.',
+// What the mock pretends Poco says when they notice a feeling, and why. In
+// Social Mode Poco faces the person the child is with and guides the child.
+const MOCK_SAYS: Record<string, { say: string; why: string }> = {
+  happy: { say: 'Your friend looks happy! You could smile back.', why: 'A good moment to practice smiling back.' },
+  sad: { say: 'Your friend looks sad. Maybe ask if they are okay.', why: 'Helping the child respond kindly.' },
+  angry: { say: "Your friend looks angry. Let's give them some space.", why: 'Keeping things calm and safe.' },
+  worried: { say: "Your friend looks worried. You could say it's okay.", why: 'Suggesting a kind word.' },
+  surprised: { say: 'Wow, your friend looks surprised!', why: 'Naming the surprise so it feels less confusing.' },
+  calm: { say: 'Your friend looks calm.', why: 'Pointing out a calm moment.' },
+  neutral: { say: 'Your friend is listening.', why: "Letting the child know it's a good time to talk." },
 };
+// Why the mock stays quiet instead (it shows the feeling on the belly).
+const MOCK_QUIET = [
+  'Stayed quiet so the child could lead.',
+  'Spoke a moment ago, so waited.',
+  'The conversation was going well, so kept out of it.',
+];
 
 export class MockPocoClient implements PocoClient {
   private connected = false;
@@ -258,7 +271,7 @@ export class MockPocoClient implements PocoClient {
   }
 
   // Pretends Poco noticed a feeling every 5–9 s, saying something about it
-  // roughly half the time (the real robot filters its own chatter).
+  // roughly half the time (the real robot filters its own chatter), with a reason either way.
   setInteracting(on: boolean): void {
     console.debug('[poco] setInteracting', on);
     window.clearTimeout(this.interactTimer);
@@ -268,7 +281,9 @@ export class MockPocoClient implements PocoClient {
         const ids = Object.keys(MOCK_SAYS);
         const feeling = ids[Math.floor(Math.random() * ids.length)];
         const speaks = Math.random() < 0.5;
-        const event: PocoEvent = { type: 'noticed', feeling, said: speaks ? MOCK_SAYS[feeling] : undefined, at: Date.now() };
+        const event: PocoEvent = speaks
+          ? { type: 'noticed', feeling, said: MOCK_SAYS[feeling].say, why: MOCK_SAYS[feeling].why, at: Date.now() }
+          : { type: 'noticed', feeling, why: MOCK_QUIET[Math.floor(Math.random() * MOCK_QUIET.length)], at: Date.now() };
         this.listeners.forEach((l) => l(event));
         next();
       }, 5000 + Math.random() * 4000);

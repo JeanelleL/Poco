@@ -64,7 +64,7 @@ export interface AppState {
   hiddenTiles: string[];
   /** The adult's own lesson plans (presets aren't stored). */
   lessons: Lesson[];
-  /** Interacting Mode history, newest first. Feeling names and times only; stays on this iPad. */
+  /** Social Mode activity log, newest first: what Poco did and said, and when. Stays on this iPad. */
   sessions: InteractSession[];
   /** Setup was just finished: play the one-time wake-up animation. */
   introPending: boolean;
@@ -75,18 +75,18 @@ export interface InteractSession {
   id: string;
   start: number;
   end: number;
-  events: { feeling: string; said?: string; at: number }[];
+  /** What Poco noticed (the other person's feeling), what they said if anything, and why. */
+  events: { feeling: string; said?: string; why?: string; at: number }[];
   /** Optional review by the adult afterwards. */
   feedback?: SessionFeedback;
 }
 
 export type SessionRating = 'Tough' | 'OK' | 'Great';
 
+/** Earlier builds also saved per-moment `corrections`; they're ignored now (the log doesn't track feelings). */
 export interface SessionFeedback {
   rating?: SessionRating;
   note?: string;
-  /** Moments Poco got wrong, by event time: the real feeling id, or 'none' if no one was there. */
-  corrections: Record<number, string>;
 }
 
 // Keeps local storage small: plenty for weeks of daily sessions.

@@ -89,7 +89,8 @@ function TileGrid({
   /** Where this grid's tiles fall in the page-wide power-on wave. */
   start?: number;
 }) {
-  const { showBelly } = useApp();
+  // A color tile is a real action like a face tile (new line, the bar's belly re-scans), just without a movement.
+  const { play } = useApp();
   return (
     <div className="tile-grid">
       {tiles.map((t, i) => (
@@ -104,7 +105,7 @@ function TileGrid({
               type="button"
               className="tile teach-tile is-color"
               aria-label={`Show the ${t.label.toLowerCase()} color`}
-              onClick={() => showBelly('solid', t.color)}
+              onClick={() => play(null, t.color, 'solid', `This is my ${t.label.toLowerCase()} color.`)}
             >
               <LedMatrix pattern="solid" color={t.color} size={7} gap={3} scan />
             </button>

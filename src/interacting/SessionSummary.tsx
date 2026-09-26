@@ -1,64 +1,53 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import type { InteractSession } from '../app/AppProvider';
-import { EMOTIONS } from '../poco/emotions';
-import { LedMatrix } from '../poco/LedMatrix';
-import { NO_ONE, accuracy, countFeelings, effectiveEvents, type FeelingCount } from './sessionStats';
+import { noticedNote } from './sessionStats';
 // .small-btn is shared with Teaching.
 import '../teaching/teaching.css';
 
-/**
- * One bar per feeling, in that feeling's belly color. Each row is labeled with
- * the face, name and exact count, so nothing depends on color alone (and no
- * hover is needed on a touch screen).
- */
-export function FeelingBars({
-  counts,
-  label,
-  pulse,
-}: {
-  counts: FeelingCount[];
-  label: string;
-  /** While Poco is live: the feeling they just noticed, and a counter to replay its glow. */
-  pulse?: { feeling: string; n: number };
-}) {
-  const max = Math.max(1, ...counts.map((c) => c.count));
-  return (
-    <ul className="bars" aria-label={label}>
-      {counts.map((c) => {
-        const e = EMOTIONS.find((x) => x.id === c.feeling);
-        return (
-          <li key={c.feeling} className="bar-row">
-            <span className="bar-name">
-              {e && <LedMatrix pattern={e.pattern} color={e.color} size={3.5} gap={1.2} />}
-              {e?.label ?? c.feeling}
-            </span>
-            <span className="bar-track" aria-hidden="true" style={{ '--c': e?.color ?? 'var(--muted)' } as CSSProperties}>
-              <span className="bar-fill" style={{ width: `${(c.count / max) * 100}%` }}>
-                {pulse?.feeling === c.feeling && <span key={pulse.n} className="bar-glow flash" />}
-              </span>
-            </span>
-            <span className="bar-count">{c.count}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
+/** Newest notes shown before "Show all". */
+const NOTES_SHOWN = 6;
 
-/** "Went great · Poco was right 8 of 9 · note", or null before any feedback. */
+/** "Went great", or null before any feedback. */
 export function feedbackLine(s: InteractSession): string | null {
   if (!s.feedback) return null;
-  const parts: string[] = [];
-  if (s.feedback.rating) parts.push(s.feedback.rating === 'OK' ? 'Went OK' : `Went ${s.feedback.rating.toLowerCase()}`);
-  const acc = accuracy(s);
-  if (acc) parts.push(`Poco was right ${acc.right} of ${acc.total}`);
-  return parts.join(' · ') || 'Reviewed';
+  const r = s.feedback.rating;
+  return r ? (r === 'OK' ? 'Went OK' : `Went ${r.toLowerCase()}`) : 'Reviewed';
+}
+
+interface Note {
+  at: number;
+  /** What Poco picked up, or a status like "Started watching and listening". */
+  noticed: string;
+  /** What Poco decided to do. */
+  did?: string;
+  /** Poco's own words, if they spoke. */
+  said?: string;
+  /** Why Poco did it, as the robot reports it. */
+  why?: string;
 }
 
 /**
- * Feeling bars for one session (with the adult's corrections applied), every
- * moment behind a toggle, and the optional feedback button at the bottom.
+ * The session as a log of Poco's thinking, newest first, so the teacher can
+ * see Poco was working and why they acted: what they noticed, what they
+ * decided (speak up, or stay quiet and show it on the belly) and the reason.
+ * There are no feeling counts on purpose.
  */
+function sessionNotes(s: InteractSession, live: boolean): Note[] {
+  const notes: Note[] = [{ at: s.start, noticed: 'Started watching and listening' }];
+  s.events.forEach((ev) =>
+    notes.push({
+      at: ev.at,
+      noticed: noticedNote(ev.feeling),
+      did: ev.said ? 'Said' : 'Stayed quiet, showed it on their belly',
+      said: ev.said,
+      why: ev.why,
+    }),
+  );
+  if (!live) notes.push({ at: s.end, noticed: 'Paused' });
+  return notes.reverse();
+}
+
+/** One session's log, with the optional feedback button at the bottom. */
 export function SessionDetail({
   session,
   onFeedback,
@@ -66,53 +55,42 @@ export function SessionDetail({
 }: {
   session: InteractSession;
   onFeedback?: () => void;
-  /** Poco is running: glow the bar of whatever they just noticed. */
+  /** Poco is still running, so there's no "Paused" note yet. */
   live?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const events = effectiveEvents(session);
-  const counts = countFeelings(events);
-  const last = events[events.length - 1];
-  const pulse = live && last ? { feeling: last.feeling, n: events.length } : undefined;
+  const [all, setAll] = useState(false);
   const reviewed = feedbackLine(session);
-  const fix = session.feedback?.corrections ?? {};
+  const notes = sessionNotes(session, live);
+  const shown = all ? notes : notes.slice(0, NOTES_SHOWN);
+  const time = (at: number) => new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
   return (
     <>
-      {counts.length ? (
-        <FeelingBars counts={counts} label="Feelings noticed" pulse={pulse} />
-      ) : (
-        <p className="int-empty">Poco didn't notice any feelings yet.</p>
-      )}
+      <ol className="int-feed" aria-label="What Poco noticed and decided">
+        {shown.map((n, i) => (
+          <li key={`${n.at}-${i}`} className={`int-row${n.did ? '' : ' is-status'}`}>
+            <span className="int-time">{time(n.at)}</span>
+            <span className="int-note">
+              <span className="int-noticed">{n.noticed}</span>
+              {n.did && (
+                <span className="int-did">
+                  <span className="int-arrow" aria-hidden="true">
+                    &rarr;
+                  </span>
+                  {n.did}
+                  {n.said && <span className="int-said"> "{n.said}"</span>}
+                </span>
+              )}
+              {n.why && <span className="int-why">Why: {n.why}</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
 
-      {session.events.length > 0 && (
-        <button type="button" className="moments-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? 'Hide moments' : `Show every moment (${session.events.length})`}
+      {notes.length > NOTES_SHOWN && (
+        <button type="button" className="moments-toggle" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? 'Show fewer' : `Show all ${notes.length} notes`}
         </button>
-      )}
-      {open && (
-        <ol className="int-feed">
-          {[...session.events].reverse().map((ev) => {
-            const real = fix[ev.at];
-            const shown = EMOTIONS.find((x) => x.id === (real ?? ev.feeling));
-            const guess = EMOTIONS.find((x) => x.id === ev.feeling);
-            return (
-              <li key={ev.at} className="int-row" style={{ '--c': shown?.color ?? 'var(--muted)' } as CSSProperties}>
-                <span className="int-time">
-                  {new Date(ev.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                </span>
-                <span className="int-feeling">
-                  {shown && <LedMatrix pattern={shown.pattern} color={shown.color} size={4} gap={1.5} />}
-                  {real === NO_ONE ? 'No one there' : shown?.label ?? ev.feeling}
-                </span>
-                <span className={`int-said${ev.said ? '' : ' is-quiet'}`}>
-                  {ev.said ? `"${ev.said}"` : 'Showed it on their belly'}
-                  {real && <span className="int-fixed"> Poco guessed {guess?.label ?? ev.feeling}</span>}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
       )}
 
       {onFeedback && (

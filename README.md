@@ -21,14 +21,14 @@ The system has three parts:
 - The **laptop** runs a Python server (camera, emotion detection, TTS, serial to the Arduino). It is **not built yet**.
 - The **Arduino Uno** is physically plugged into the laptop by USB and drives the motors and belly LEDs.
 
-**This repo is the iPad app: the onboarding flow plus the main app with Teaching, Interacting and Fun modes.** The Python server comes later. The robot is **mocked** behind `src/poco/pocoClient.ts`. The iPad is the adult's **remote control** for the physical Poco: after onboarding there is no on-screen penguin, because the adult is watching the real one.
+**This repo is the iPad app: the onboarding flow plus the main app with Teaching, Social and Fun modes.** The Python server comes later. The robot is **mocked** behind `src/poco/pocoClient.ts`. The iPad is the adult's **remote control** for the physical Poco: after onboarding there is no on-screen penguin, because the adult is watching the real one.
 
 Guiding rule for anything we ask the adult: **only ask for something if it changes what Poco does**, and it stays on the iPad (privacy answer for judges). We deliberately don't collect diagnosis, medical info, photos, birthday or last name.
 
 ## 2. Status
 
 - All 7 onboarding steps work end to end. `npm run build` (tsc + vite) passes with no errors.
-- After onboarding: mode tabs (Teaching / Interacting / Fun), profile chip (settings placeholder with "Start setup again"), now-playing bar with Stop. Teaching Mode is complete (tiles, tile editor, lessons, lesson player, lesson builder). Checked in headless Edge at 1180×820 and 1024×768.
+- After onboarding: mode tabs (Teaching / Social / Fun), profile chip (settings placeholder with "Start setup again"), now-playing bar with Stop. Teaching Mode is complete (tiles, tile editor, lessons, lesson player, lesson builder). Checked in headless Edge at 1180×820 and 1024×768.
 - Verified with headless Edge + Playwright screenshots at 1180×820 (iPad Air, the design target), 1024×768 and 1366×1024: no horizontal scroll, resume after reload works.
 - **Not yet tested on a real iPad.** Next practical step: serve it from the laptop and open it on the iPad (section 8).
 
@@ -87,12 +87,12 @@ src/
     funRoutines.ts     4 dance breaks + 2 games as data (steps = body + flipper move, belly picture, color, line, ms)
     FunScreen.tsx      tap a card to start; now-playing card with progress + Stop (Copy Me: Next move); fun.css
   interacting/
-    InteractingScreen.tsx  Start/Pause switch, this/last session, past sessions
+    InteractingScreen.tsx  Social tab: Start/Pause switch, this/last session, past sessions
     SessionSummary.tsx     FeelingBars (one bar per feeling, in its belly color, labeled) + "Show every moment" list + Give feedback
     FeedbackForm.tsx       optional review: How did it go? (Tough/OK/Great), notes, fix moments Poco got wrong
     sessionStats.ts        countFeelings, minutesLabel, dayLabel, weeklyTrend (last 7 days vs the 7 before); interacting.css
   ui/ConfirmButton.tsx     tap-twice destructive button (Delete, Reset, Clear history)
-  settings/SettingsScreen.tsx  one scrolling form: child, what works, Poco comfort + connection, you, Interacting history, Start setup again (edits save as you go)
+  settings/SettingsScreen.tsx  one scrolling form: child, what works, Poco comfort + connection, you, Social history, Start setup again (edits save as you go)
   onboarding/
     OnboardingLayout.tsx    PocoStage + right panel, progress, footer
     ProgressDots.tsx, StepHeader.tsx
@@ -144,7 +144,7 @@ interface PocoClient {
   perform(a: { move?: PocoMove; mix?: MoveMix; belly?: { pattern: string[]; color: string; brightness: number }; say?: string }): void;
   stop(): void;
   setInteracting(on: boolean): void;   // Poco decides when to talk (the robot filters its own chatter)
-  onEvent(listener: (e: PocoEvent) => void): () => void;   // PocoEvent = { type: 'noticed', feeling, said?, at }
+  onEvent(listener: (e: PocoEvent) => void): () => void;   // PocoEvent = { type: 'noticed', feeling, said?, why?, at }
 }
 // PocoMove = the 23 gestures in servos/gestures.py (POCO_MOVES, with lengths). Feelings without their own
 // movement (angry, neutral, excited, silly) use the closest. On screen, poco/moves.css animates each one
@@ -179,11 +179,13 @@ interface PocoClient {
 - The Connect step should become honest two-stage status: laptop found → Poco answered.
 - Open questions for the user: does an Arduino sketch exist already; motor type (servos?) and LED type (NeoPixel/WS2812 or a matrix module); speech from laptop speakers or a speaker in Poco; Python must be installed (it isn't yet).
 
-**C. Later:** the real laptop/robot side of Interacting Mode.
+**C. Later:** the real laptop/robot side of Social Mode.
 
-**Interacting Mode, how it works.** Poco does the watching and responding themself; the app only switches it on and off. `pocoClient.setInteracting(true | false)` tells the robot, and `pocoClient.onEvent` delivers `{ type: 'noticed', feeling, said? }` events, shown in the feed and mirrored in the "Poco says" bar via `mirror()` (nothing is sent back). The mock invents an event every 5–9 s and speaks about half the time. Leaving the screen or Stop Poco pauses them, so they never run unseen. There is no talkativeness setting in the app: the robot filters its own chatter.
+**Social Mode, what it's for.** (The tab says "Social"; in code it's still `Interacting` / `setInteracting` / `InteractSession`, so older saves keep working.) Social Mode helps the child during a real interaction with **another person** (a classmate, sibling, parent or teacher). Poco is placed **facing that other person, not the child**: the camera reads the other person's face and voice, and Poco helps guide the child through the moment. Poco shows the other person's feeling on their belly and can say what they notice (e.g. "Your friend looks happy!"), so the child learns to read someone else's feelings in the moment instead of being the one who is watched. Everything Poco "noticed" in a session is the other person's feeling, not the child's.
 
-**Interacting history.** Each Start → Pause is an `InteractSession` in `state.sessions` (newest first, max 60 sessions × 300 events; taps under 20 s with nothing noticed aren't kept). It's saved on every event, so a reload loses nothing. Only feeling ids, what Poco said and times are stored, on this iPad only; Settings has Clear history. Logging is automatic; review is optional: each ended session has a Give feedback button (rating, note, corrections keyed by event time, `'none'` = no one was there). Bars, past-session chips and the weekly trend use `effectiveEvents()` (corrections applied); `accuracy()` gives "Poco was right X of Y" for reviewed sessions — the data you'd want later to tune Poco's face reading. The feeling colors are Poco's LED colors, so they're kept for the bars even though yellow/orange are low-contrast on white and green/orange are close for protan vision: every bar is labeled (face, name, count) and has a darker edge.
+**Social Mode, how it works.** Poco does the watching and guiding themself; the app only switches it on and off. `pocoClient.setInteracting(true | false)` tells the robot, and `pocoClient.onEvent` delivers `{ type: 'noticed', feeling, said?, why? }` events (`feeling` = the other person's, `why` = Poco's reason for speaking up or staying quiet), shown in the log and mirrored in the "Poco says" bar via `mirror()` (nothing is sent back). The mock invents an event every 5–9 s, speaks about half the time, and always gives a reason. Leaving the screen or Stop Poco pauses them, so they never run unseen. There is no talkativeness setting in the app: the robot filters its own chatter.
+
+**Social log.** Each Start → Pause is an `InteractSession` in `state.sessions` (newest first, max 60 sessions × 300 events; taps under 20 s with nothing noticed aren't kept), saved on every event so a reload loses nothing, on this iPad only (Settings has Clear history). It's a log for the teacher to **see Poco is working and follow Poco's decision-making**, not a feelings tracker: there are deliberately no feeling counts, bars, trends or accuracy scores (the user found them unhelpful). `SessionDetail` shows notes newest first: "Started watching and listening", then for each event what Poco noticed (`noticedNote()`: "They looked sad"), what Poco decided ("→ Said "…"" or "→ Stayed quiet, showed it on their belly") and **why** (the event's `why`), then "Paused". Past sessions are one line each ("Thu, Sep 24, 6:20 PM · 9 min · 5 notes") that open to their notes. Give feedback is optional: a rating (Tough / OK / Great) and a note. Older saves may still hold per-moment `corrections`; they're ignored.
 
 **Fun Mode, how it works.** Timed routines loop their steps (each held `ms` × comfort speed) until `seconds` is up, then Poco says "Great dancing". Copy Me is paced by the adult's Next move. Stop Poco bumps `poco.stopId`; FunScreen watches it and ends the routine (use the same signal for anything else that runs on timers). "Being touched" sensitivity was cut; Fun Mode may later need a "no touch prompts" option.
 
