@@ -4,7 +4,7 @@ Handoff notes for whoever works on this next (human or agent). Read this whole f
 
 ## 1. What Poco is
 
-**Poco** is a plush robot penguin that helps **autistic children learn to read, name and regulate emotions**. His belly has a 7×7 LED matrix that shows pictures and emotion colors; he has 10 motors (flippers, body) and talks.
+**Poco** is a plush robot penguin that helps **autistic children learn to read, name and regulate emotions**. His belly has a LED matrix that shows pictures and emotion colors; he has 10 motors (flippers, body) and talks with a speaker and camera.
 
 The system has three parts:
 
