@@ -1,0 +1,432 @@
+.interacting {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ---------- On / paused status ---------- */
+.int-status {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+  padding: 22px 26px;
+  background: var(--card);
+  border: 3px solid transparent;
+  border-radius: 28px;
+  box-shadow: 0 4px 0 var(--card-ledge);
+  transition: border-color .3s;
+}
+.int-status.is-on {
+  border-color: var(--orange);
+}
+
+.int-eye {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 26px;
+  background: var(--segment);
+  transition: background-color .3s;
+}
+.int-status.is-on .int-eye {
+  background: #FFF3E8;
+}
+/* A slow "breathing" glow while Poco is watching. */
+.int-status.is-on .int-eye .led {
+  animation: int-breathe 2.4s ease-in-out infinite;
+}
+@keyframes int-breathe {
+  50% {
+    opacity: .55;
+  }
+}
+
+.int-status-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.int-status-label {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.int-status.is-on .int-status-label {
+  color: var(--orange-text);
+}
+
+.int-status-title {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.int-status-hint {
+  margin-top: 4px;
+  font-size: 17px;
+  color: var(--ink-2);
+}
+
+/* ---------- Sections ---------- */
+.int-section {
+  margin-top: 32px;
+}
+
+.int-section-title {
+  margin-bottom: 14px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ink);
+}
+
+/* ---------- Session summary ---------- */
+.int-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+}
+.int-section-head .int-section-title {
+  margin-bottom: 0;
+}
+
+.int-meta {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: .04em;
+  color: var(--ink-3);
+}
+
+/* Feeling bars: label | bar | count. Thin bars, rounded at the data end only. */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 18px 22px;
+  list-style: none;
+  background: var(--card);
+  border-radius: 22px;
+  box-shadow: 0 3px 0 var(--card-ledge);
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 14px;
+}
+
+.bar-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.bar-track {
+  height: 14px;
+}
+
+.bar-fill {
+  position: relative;
+  display: block;
+  min-width: 6px;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--c);
+  /* A darker edge in the same color keeps pale feelings (yellow) visible on white. */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 70%, #000);
+  /* Grows in from the left when a session appears; later count changes glide. */
+  /* No fill mode, so once it finishes the width transition below takes over. */
+  animation: bar-grow .6s cubic-bezier(.2, .8, .3, 1);
+  transition: width .45s ease;
+}
+@keyframes bar-grow {
+  from {
+    width: 0;
+  }
+}
+
+.bar-row {
+  animation: rise .4s cubic-bezier(.2, .9, .25, 1.15) both;
+}
+
+/* Glow on the bar of the feeling Poco just noticed (live sessions). */
+.bar-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.bar-count {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 18px;
+  text-align: right;
+  color: var(--ink);
+}
+
+.moments-toggle {
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+/* ---------- Past sessions ---------- */
+.int-trend {
+  margin: -4px 0 14px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #FFF3E8;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.past-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.past-item {
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: 0 3px 0 var(--card-ledge);
+}
+
+.past-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 18px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.past-when {
+  flex: none;
+  width: 205px;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.past-meta {
+  flex: none;
+  width: 150px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.past-top {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.past-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--segment);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.past-caret {
+  flex: none;
+  color: var(--ink-3);
+  transition: transform .2s;
+}
+.past-item.is-open .past-caret {
+  transform: rotate(180deg);
+}
+
+.past-detail {
+  padding: 0 18px 16px;
+}
+.past-detail .bars {
+  box-shadow: none;
+  background: var(--paper);
+}
+
+/* ---------- Feedback ---------- */
+.feedback-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 2px solid var(--line);
+}
+
+.feedback-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--success);
+}
+.feedback-foot .moments-toggle {
+  margin-top: 0;
+}
+
+.past-rating {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--segment);
+  color: var(--ink-2);
+}
+.past-rating.is-great {
+  background: #E4F3EA;
+  color: #226844;
+}
+.past-rating.is-tough {
+  background: #FBE9E6;
+  color: #A33A2B;
+}
+
+.feedback-note {
+  max-width: none;
+}
+
+.rating-chip {
+  min-width: 110px;
+  min-height: 52px;
+  font-size: 17px;
+}
+
+.review-row {
+  flex-wrap: wrap;
+}
+.review-row.is-changed {
+  background: #FFF3E8;
+}
+
+.review-select {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+}
+.review-row.is-changed .review-select {
+  border-color: var(--orange);
+}
+
+.int-fixed {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* ---------- Every moment ---------- */
+.int-empty {
+  padding: 22px;
+  border: 2px dashed var(--line-2);
+  border-radius: 20px;
+  font-size: 16px;
+  color: var(--ink-3);
+}
+
+.int-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.int-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 58px;
+  padding: 10px 18px;
+  background: var(--card);
+  border-left: 5px solid var(--c);
+  border-radius: 16px;
+  animation: rise .4s cubic-bezier(.2, .9, .25, 1.15) both;
+}
+
+.int-time {
+  flex: none;
+  width: 70px;
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 15px;
+  color: var(--ink-3);
+}
+
+.int-feeling {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 140px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.int-said {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--ink);
+}
+.int-said.is-quiet {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink-3);
+}

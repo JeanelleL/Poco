@@ -1,0 +1,851 @@
+.teaching {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ---------- Feelings | Lessons bar ---------- */
+.teach-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Underlined text tabs, so this second level doesn't look like the mode bar above it. */
+.teach-switch {
+  position: relative;
+  display: flex;
+  gap: 28px;
+}
+
+/* The orange underline that slides to the current list. */
+.teach-line {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--orange);
+  transition: transform .35s cubic-bezier(.3, 1.25, .5, 1), width .35s cubic-bezier(.3, 1.25, .5, 1), opacity .2s;
+}
+.teach-switch.has-indicator .teach-switch-btn.is-on {
+  border-bottom-color: transparent;
+}
+
+.teach-switch-btn {
+  min-height: 52px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 4px solid transparent;
+  background: transparent;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+.teach-switch-btn.is-on {
+  color: var(--ink);
+  border-bottom-color: var(--orange);
+}
+
+.teach-add,
+.small-btn {
+  min-height: 48px;
+  padding: 0 22px;
+  font-size: 16px;
+}
+
+/* ---------- Filter chips ---------- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color .2s, border-color .2s, color .2s;
+}
+.chip.is-on {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+/* ---------- Sections ---------- */
+.tile-section {
+  margin-top: 32px;
+}
+
+/*
+ * Type roles after setup: Sniglet for titles and Poco's own words; Lexend for every heading,
+ * tab, label and button (anything you read to find your way); Doto only for short LED-style
+ * tags and numbers (eyebrows, PREVIEW, YOU, EDITED, step numbers).
+ */
+.section-title {
+  margin: 36px 0 14px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.tile-section > .section-title:first-child {
+  margin-top: 0;
+}
+
+.section-hint {
+  margin: -4px 0 14px;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* ---------- Tile grid ---------- */
+/* Six across: the core feelings fill exactly one row, and every section lines up. */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+/* Fixed height with the face pinned at the top, so one- and two-line names line up. */
+.teach-tile {
+  position: relative;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 8px 10px;
+  background: var(--card);
+  border: 0;
+  border-radius: 24px;
+  box-shadow: 0 4px 0 var(--card-ledge);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.teach-tile.is-new {
+  justify-content: center;
+  padding-top: 10px;
+  background: transparent;
+  border: 2px dashed var(--line-2);
+  box-shadow: none;
+  color: var(--ink-2);
+}
+
+.teach-tile-label {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1.1;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.teach-tile-tag {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--orange-text);
+}
+
+/* ---------- Focused views ---------- */
+.back-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px 0 4px;
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.back-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.notice {
+  margin-top: 14px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: var(--segment);
+  font-size: 16px;
+  color: var(--ink-2);
+}
+
+/* ---------- Tile page ---------- */
+.tile-hero {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-top: 16px;
+  padding: 26px 30px;
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: 0 4px 0 var(--card-ledge);
+}
+
+.tile-hero-led {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 190px;
+  height: 190px;
+  border-radius: 28px;
+  /* The tile's color, faint, behind its face. */
+  background: color-mix(in srgb, var(--c) 12%, #fff);
+}
+
+.tile-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.tile-hero-title {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1.05;
+}
+
+.tile-hero-about {
+  max-width: 560px;
+  margin-top: 8px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.clues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clue {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--segment);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.act-btn {
+  margin-top: 20px;
+}
+
+.say-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.say-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 20px 10px 12px;
+  background: var(--card);
+  border: 3px solid transparent;
+  border-radius: 22px;
+  box-shadow: 0 3px 0 var(--card-ledge);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s, transform .12s ease, box-shadow .12s ease;
+}
+.say-row:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--card-ledge);
+}
+.say-row.is-said {
+  border-color: var(--navy);
+}
+.say-row {
+  position: relative;
+}
+
+/* Glow in the tile's color when a line is sent to Poco. */
+.say-glow {
+  position: absolute;
+  inset: -3px;
+  border-radius: 22px;
+  pointer-events: none;
+}
+
+.say-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--segment);
+  color: var(--navy);
+}
+.say-row.is-said .say-icon {
+  background: var(--navy);
+  color: #fff;
+}
+
+.say-text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.say-group {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--segment);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+/* ---------- Editors ---------- */
+/* Tile editor: one scrolling column of sections, with the live preview following alongside. */
+.editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 32vw, 400px);
+  gap: 32px;
+  align-items: start;
+}
+.editor-grid.is-even {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.editor-form {
+  margin-top: 8px;
+}
+
+.editor-section + .editor-section {
+  margin-top: 34px;
+}
+
+.editor-label {
+  display: block;
+  margin-bottom: 10px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.editor-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.editor-label-row .editor-label {
+  margin-bottom: 0;
+}
+
+.editor-section .section-hint {
+  margin: 2px 0 12px;
+}
+
+.editor-section .input {
+  max-width: none;
+}
+
+.editor-section .swatches {
+  margin-top: 0;
+}
+
+/* The drawing grid, centered in a full-width card. */
+.belly-card {
+  padding: 22px;
+}
+.belly-card .led-editor {
+  width: 280px;
+}
+
+.editor-missing {
+  margin-top: 10px;
+  font-size: 14px;
+  text-align: right;
+  color: var(--ink-3);
+}
+/* ---------- Movement chips ---------- */
+.motion-row + .motion-row {
+  margin-top: 18px;
+}
+
+/* Slightly tighter chips so each row of 7 fits on one line down to 1024 wide. */
+.motion-row .chips {
+  gap: 6px;
+  margin-top: 8px;
+}
+.motion-row .chip {
+  padding: 0 14px;
+}
+
+/* ---------- Tile preview (right of the editor, follows as you scroll) ---------- */
+.tile-preview {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 18px 22px;
+  background: var(--ice);
+  border-radius: var(--radius-card);
+}
+
+.tile-preview-label {
+  align-self: flex-start;
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* The 300x340 penguin at 85%, centered on a floor, with headroom for jumps and raised flippers. */
+.tile-preview-stage {
+  position: relative;
+  width: 100%;
+  height: 330px;
+}
+
+.tile-preview-floor {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 230px;
+  height: 20px;
+  margin-left: -115px;
+  border-radius: 50%;
+  background: var(--floor);
+}
+
+.tile-preview-poco {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  width: 300px;
+  height: 340px;
+  margin-left: -150px;
+  transform: scale(.85);
+  transform-origin: 50% 100%;
+}
+
+.tile-preview-name {
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1.1;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.tile-preview-move {
+  margin: 4px 0 14px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.line-list,
+.build-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.line-row,
+.build-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.line-num {
+  flex: none;
+  width: 28px;
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.line-input {
+  flex: 1;
+  max-width: none;
+  height: 54px;
+  font-size: 17px;
+}
+
+.icon-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.icon-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.add-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  margin-top: 12px;
+  padding: 0 22px;
+  border: 2px dashed var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.editor-actions,
+.lesson-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.editor-actions-gap {
+  flex: 1;
+}
+
+/* ---------- Lesson list ---------- */
+.lesson-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px;
+}
+
+.lesson-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 168px;
+  padding: 20px 22px;
+  background: var(--card);
+  border: 0;
+  border-radius: 24px;
+  box-shadow: 0 4px 0 var(--card-ledge);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.lesson-card:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--card-ledge);
+}
+
+.lesson-card.is-new {
+  justify-content: center;
+  background: transparent;
+  border: 2px dashed var(--line-2);
+  box-shadow: none;
+  color: var(--ink-2);
+}
+
+.lesson-tag {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--orange-text);
+}
+
+.lesson-title,
+.lesson-new-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.lesson-goal,
+.lesson-new-hint {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.lesson-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.lesson-dots {
+  display: flex;
+  gap: 4px;
+}
+.lesson-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* ---------- Lesson player ---------- */
+.lesson-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 18px;
+  background: var(--card);
+  border: 3px solid transparent;
+  border-radius: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s, background-color .2s, opacity .2s;
+}
+
+.step-row.is-cue {
+  background: var(--segment);
+}
+
+.step-row.is-current {
+  border-color: var(--orange);
+  background: #FFF3E8;
+}
+
+.step-row.is-done {
+  opacity: .55;
+}
+
+.step-num {
+  flex: none;
+  width: 26px;
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 16px;
+  color: var(--muted);
+}
+.step-row.is-current .step-num {
+  color: var(--orange-text);
+}
+
+.step-led {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+}
+
+.step-you {
+  flex: none;
+  min-width: 44px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--navy);
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.step-text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.step-row.is-cue .step-text {
+  font-family: var(--font-body);
+  font-size: 17px;
+  color: var(--ink-2);
+}
+
+/* Controls stay in reach at the bottom of a long lesson. */
+.lesson-controls {
+  position: sticky;
+  bottom: -32px;
+  margin: 24px -8px 0;
+  padding: 16px 8px 20px;
+  background: var(--paper);
+}
+
+.lesson-done {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--success);
+}
+
+/* ---------- Lesson builder ---------- */
+.build-step {
+  padding: 10px 12px;
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: 0 3px 0 var(--card-ledge);
+}
+.build-step.is-cue {
+  background: var(--segment);
+  box-shadow: none;
+}
+
+.build-step .step-you {
+  min-width: 200px;
+  padding: 10px 8px;
+  border-radius: 999px;
+}
+
+.tile-pick {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 200px;
+  min-height: 54px;
+  padding: 0 14px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.tile-pick-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.build-tools {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+
+.tile-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.tile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 10px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.tile-chip.is-on {
+  border-color: var(--navy);
+}
+
+.build-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}

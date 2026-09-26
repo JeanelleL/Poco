@@ -1,0 +1,84 @@
+.rise{animation:rise .55s cubic-bezier(.2,.9,.25,1.15) both}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.d1{animation-delay:70ms}
+.d2{animation-delay:140ms}
+.d3{animation-delay:210ms}
+.d4{animation-delay:260ms}
+.d5{animation-delay:310ms}
+
+.bubble-pop{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{from{opacity:.3;transform:scale(.86) translateY(10px)}to{opacity:1;transform:none}}
+
+.caret{display:inline-block;width:3px;height:.95em;margin-left:3px;vertical-align:-3px;background:var(--orange);border-radius:2px;animation:caret .8s steps(2) infinite}
+@keyframes caret{50%{opacity:0}}
+
+.flake{position:absolute;border-radius:999px;background:#fff;animation:drift 9s ease-in-out infinite}
+@keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(9px,-20px)}}
+
+.tile{transition:transform .22s cubic-bezier(.3,1.6,.5,1)}
+.tile:hover{transform:translateY(-3px) rotate(-1.5deg)}
+.tile:active{transform:scale(.94)}
+
+.eyes{transform-box:fill-box;transform-origin:center;animation:blink 5.5s infinite}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+
+.tilt{transform-origin:50% 100%;transition:transform .5s cubic-bezier(.3,1.5,.5,1)}
+.curious .tilt{transform:rotate(-7deg)}
+.bodyg{transform-origin:50% 100%}
+.flipL{transform-box:fill-box;transform-origin:75% 8%}
+.flipR{transform-box:fill-box;transform-origin:25% 8%}
+
+.idle .bodyg{animation:breathe 3.6s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.015,.985)}}
+
+/* Body moves (b-*) and flipper moves (f-*) combine freely; named gestures are pairs (GESTURE_MOTION). */
+.b-bounce .bodyg{animation:hop calc(.5s * var(--spd)) ease-in-out 3}
+.b-slump .bodyg{animation:slump calc(1.2s * var(--spd)) ease-out forwards}
+.b-shake .bodyg{animation:shake calc(.1s * var(--spd)) linear 10 alternate}
+.b-tremble .bodyg{animation:tremble calc(.07s * var(--spd)) linear 20 alternate}
+.b-jump .bodyg{animation:jolt calc(.6s * var(--spd)) cubic-bezier(.3,1.6,.5,1)}
+.b-sway .bodyg{animation:sway calc(1.6s * var(--spd)) ease-in-out 2}
+@keyframes hop{0%,100%{transform:translateY(0)}45%{transform:translateY(-14px) scale(1.02,.98)}}
+@keyframes slump{to{transform:translateY(8px) scale(1.02,.96)}}
+@keyframes shake{from{transform:translateX(-5px)}to{transform:translateX(5px)}}
+@keyframes tremble{from{transform:translateX(-2px) scale(.97)}to{transform:translateX(2px) scale(.97)}}
+@keyframes jolt{0%{transform:none}35%{transform:translateY(-22px) scale(.97,1.05)}100%{transform:none}}
+@keyframes sway{0%,100%{transform:rotate(0)}25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+
+.f-flap .flipL{animation:flapL calc(.25s * var(--spd)) ease-in-out 6 alternate}
+.f-flap .flipR{animation:flapR calc(.25s * var(--spd)) ease-in-out 6 alternate}
+.f-droop .flipL{animation:droopL calc(1.2s * var(--spd)) ease-out forwards}
+.f-droop .flipR{animation:droopR calc(1.2s * var(--spd)) ease-out forwards}
+.f-stiff .flipL{animation:stiffL calc(.3s * var(--spd)) ease-out forwards}
+.f-stiff .flipR{animation:stiffR calc(.3s * var(--spd)) ease-out forwards}
+.f-cover .flipL{animation:coverL calc(.35s * var(--spd)) ease-out forwards}
+.f-cover .flipR{animation:coverR calc(.35s * var(--spd)) ease-out forwards}
+.f-up .flipL{animation:upL calc(.6s * var(--spd)) ease-out forwards}
+.f-up .flipR{animation:upR calc(.6s * var(--spd)) ease-out forwards}
+.f-wave .flipR{animation:waveR calc(.3s * var(--spd)) ease-in-out 8 alternate}
+@keyframes flapL{to{transform:rotate(40deg)}}
+@keyframes flapR{to{transform:rotate(-40deg)}}
+@keyframes droopL{to{transform:rotate(-14deg)}}
+@keyframes droopR{to{transform:rotate(14deg)}}
+@keyframes stiffL{to{transform:rotate(28deg)}}
+@keyframes stiffR{to{transform:rotate(-28deg)}}
+@keyframes coverL{to{transform:rotate(-48deg)}}
+@keyframes coverR{to{transform:rotate(48deg)}}
+@keyframes upL{40%{transform:rotate(78deg)}100%{transform:rotate(55deg)}}
+@keyframes upR{40%{transform:rotate(-78deg)}100%{transform:rotate(-55deg)}}
+@keyframes waveR{from{transform:rotate(-65deg)}to{transform:rotate(-100deg)}}
+
+/* LED scan: dots switch on row by row (LedMatrix scan prop) */
+.led-scan .led-dot{animation:led-in .28s ease-out both;animation-delay:calc(var(--r) * 45ms)}
+@keyframes led-in{from{opacity:0;transform:scale(.4)}}
+
+/* One-off "sent to Poco" glow in the element's --c color */
+.flash{animation:flash .7s ease-out}
+@keyframes flash{from{box-shadow:0 0 0 4px var(--c),0 0 26px 4px var(--c)}}
+
+/* connect status dot while searching */
+@keyframes pulse{50%{transform:scale(.72);opacity:.55}}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+}

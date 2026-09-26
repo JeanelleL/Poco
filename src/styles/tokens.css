@@ -1,0 +1,39 @@
+:root {
+  --ink: #14212B;          /* primary text */
+  --ink-2: #4A5B66;        /* secondary text */
+  --ink-3: #5E6F79;        /* tertiary labels */
+  --muted: #8A98A1;        /* upcoming step numbers */
+  --navy: #1C3A4F;         /* primary buttons, selected pills */
+  --navy-ledge: #0E2230;   /* button bottom shadow */
+  --orange: #E8833A;       /* Poco's LED default, current step, accents */
+  --orange-text: #B64F17;  /* orange for text and filled buttons (AA contrast) */
+  --orange-ledge: #8E3C10;
+  --ice: #DCEAF1;          /* left Poco stage */
+  --ice-ledge: #C4D7E1;    /* bubble shadow */
+  --floor: #C6DAE5;        /* shadow ellipse under Poco */
+  --paper: #FBF8F4;        /* right panel background */
+  --card: #FFFFFF;
+  --card-ledge: #ECE6DC;   /* card bottom shadow */
+  --line: #E6E1D9;         /* input borders, unselected pills */
+  --line-2: #D6DEE3;       /* light button ledge */
+  --segment: #EFEBE4;      /* tab track */
+  --dot-off: #ECE8E1;      /* unlit LED */
+  --dot-idle: #DCE3E7;     /* upcoming progress dots */
+  --success: #3FA36B;
+
+  /* Poco body */
+  --poco-grey: #9A9EA4;
+  --poco-flipper: #868A90;
+  --poco-white: #FBFAF7;
+  --poco-beak: #F4AE3C;
+  --poco-eye: #1B1B1F;
+
+  /* Type */
+  --font-display: 'Sniglet', 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
+  --font-body: 'Lexend', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-dot: 'Doto', ui-monospace, 'Courier New', monospace;
+
+  /* Shape */
+  --radius-card: 26px;
+  --radius-pill: 999px;
+}

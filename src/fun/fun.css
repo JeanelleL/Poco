@@ -1,0 +1,171 @@
+.fun {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ---------- Now playing ---------- */
+.fun-now {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 24px;
+  padding: 20px 24px;
+  background: var(--card);
+  border: 3px solid var(--c);
+  border-radius: 28px;
+  box-shadow: 0 4px 0 var(--card-ledge);
+}
+
+.fun-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  /* The routine's color, faint, behind its icon. */
+  background: color-mix(in srgb, var(--c) 14%, #fff);
+}
+
+.fun-now-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.fun-now-label {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--orange-text);
+}
+
+.fun-now-title {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.fun-now-hint {
+  margin-top: 6px;
+  font-size: 16px;
+  color: var(--ink-2);
+}
+
+.fun-progress {
+  height: 10px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--segment);
+  overflow: hidden;
+}
+.fun-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--c);
+  animation: fun-fill linear forwards;
+}
+@keyframes fun-fill {
+  to {
+    width: 100%;
+  }
+}
+
+.fun-now-actions {
+  flex: none;
+  display: flex;
+  gap: 12px;
+}
+
+/* ---------- Cards ---------- */
+.fun-section {
+  margin-top: 32px;
+}
+
+.fun-section-title {
+  margin-bottom: 14px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ink);
+}
+
+.fun-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.fun-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 220px;
+  padding: 18px 20px;
+  background: var(--card);
+  border: 3px solid transparent;
+  border-radius: 24px;
+  box-shadow: 0 4px 0 var(--card-ledge);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s, transform .12s ease, box-shadow .12s ease;
+}
+.fun-card:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--card-ledge);
+}
+.fun-card.is-on {
+  border-color: var(--c);
+}
+.fun-card {
+  position: relative;
+}
+
+/* Glow in the routine's color when it starts. */
+.fun-glow {
+  position: absolute;
+  inset: -3px;
+  border-radius: 24px;
+  pointer-events: none;
+}
+
+.fun-card .fun-icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 6px;
+  border-radius: 18px;
+}
+
+.fun-card-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.fun-card-blurb {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.fun-card-meta {
+  margin-top: auto;
+  padding-top: 6px;
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.fun-card.is-on .fun-card-meta {
+  color: var(--orange-text);
+}
