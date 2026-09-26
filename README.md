@@ -1,4 +1,4 @@
-# Poco — iPad app (onboarding)
+# Poco
 
 Handoff notes for whoever works on this next (human or agent). Read this whole file before changing code.
 
@@ -180,26 +180,14 @@ interface PocoClient {
 - **Accessibility:** real buttons/inputs/labels; pill groups `role=group` + `aria-pressed`; toggles `role=switch`; tabs with `role=tablist/tab`; touch targets ≥ 44px; orange focus ring on `:focus-visible`; text contrast ≥ 4.5:1; emotion colors always paired with a label and face; `prefers-reduced-motion` disables all animation and the typewriter.
 - The 6 built-in emotions (Happy, Sad, Angry, Scared, Surprised, Calm), their colors/patterns/gestures, and the 7×7 patterns are data in `emotions.ts` / `patterns.ts`; the same data will be sent to the real LEDs.
 
-## 10. Changes from the original spec (deliberate, user-approved)
-
-- 6 steps → **7**: old step 2 split into **Child** (name, pronouns, age, communication) and **Support** ("What works for {name}").
-- Support uses **plain text boxes** (user found chips cluttered). A **sensitivities** question was tried and **removed** (Comfort step covers it). A **name pronunciation** field was tried and **removed for now** (good idea for later).
-- "Try Poco out" renamed **"Get to know Poco"** / progress label **Explore** (Poco isn't connected yet at that point).
-- Make your own: the small preview was replaced by a large **drawable face grid**; Poco's belly mirrors the drawing live.
-- Comfort slider cards have **no bottom shadow** (cleaner).
-- "FEELINGS FRIEND" tag removed from the wordmark; it is just "Poco".
-- Mode cards are stacked rows, not three columns (too cramped at 1024 wide).
-- Changing movement speed plays a short demo hop so the speed change is visible.
-- "Go to Poco's home" is a stub (marks onboarding complete, Poco says home is coming soon).
-
-## 11. Gotchas
+## 10. Gotchas
 
 - Buttons inside the step `<form>` must be `type="button"` (ChunkyButton defaults to it) or they submit the step. Text inputs that shouldn't submit on Enter call `preventDefault` (see Make your own).
 - React StrictMode is on; effects run twice in dev, so keep them idempotent.
 - iOS only shows `:active` press styles because `main.tsx` adds an empty `touchstart` listener.
 - If state shape or step numbering changes, bump the storage key or normalize in `load()`/`normalizeChild()` in the provider.
 
-## 12. Working with this user
+## 11. Working with this user
 
 - Wants to **talk through bigger changes before code** (architecture, new features); cosmetic tweaks can go straight in.
 - Iterates visually: after UI changes, build and check screenshots at 1180×820 and 1024×768.
