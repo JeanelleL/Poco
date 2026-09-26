@@ -1,0 +1,210 @@
+{
+  "left_foot_up": {
+    "left_leg": 1420,
+    "right_leg": 1440
+  },
+  "right_foot_up": {
+    "left_leg": 2315,
+    "right_leg": 2280
+  },
+  "feet_centre": {
+    "left_leg": 1867,
+    "right_leg": 1860
+  },
+  "left_leg_home": {
+    "left_leg": 2015
+  },
+  "right_wave": {
+    "right_arm_pitch": 1620,
+    "right_arm_roll": 1220,
+    "right_arm_elbow": 2070
+  },
+  "right_wave_low": {
+    "right_arm_elbow": 1285
+  },
+  "right_leg_down": {
+    "right_leg": 1440
+  },
+  "left_leg_down": {
+    "left_leg": 2315
+  },
+  "left_wave": {
+    "left_arm_pitch": 1444,
+    "left_arm_roll": 1750,
+    "left_arm_elbow": 520
+  },
+  "left_wave_low": {
+    "left_arm_elbow": 1340
+  },
+  "yes_a": {
+    "head_pitch": 1810
+  },
+  "yes_b": {
+    "head_pitch": 1410
+  },
+  "no_a": {
+    "head_turret": 1490
+  },
+  "no_b": {
+    "head_turret": 1090
+  },
+  "look_left": {
+    "head_turret": 1530
+  },
+  "look_right": {
+    "head_turret": 840
+  },
+  "look_up": {
+    "head_pitch": 1410
+  },
+  "look_down": {
+    "head_pitch": 1810
+  },
+  "tilt_left": {
+    "head_roll": 1445
+  },
+  "tilt_right": {
+    "head_roll": 945
+  },
+  "tilt_left_small": {
+    "head_roll": 1345
+  },
+  "tilt_right_small": {
+    "head_roll": 1045
+  },
+  "bob_up": {
+    "head_pitch": 1490
+  },
+  "flap_out": {
+    "right_arm_roll": 1480,
+    "left_arm_roll": 1490
+  },
+  "happy_a": {
+    "left_leg": 1644,
+    "right_leg": 1650,
+    "head_roll": 1315,
+    "head_pitch": 1460,
+    "right_arm_roll": 500,
+    "left_arm_roll": 2470
+  },
+  "happy_b": {
+    "left_leg": 2091,
+    "right_leg": 2070,
+    "head_roll": 1075,
+    "head_pitch": 1460,
+    "right_arm_roll": 1030,
+    "left_arm_roll": 1940
+  },
+  "sad_down": {
+    "head_pitch": 1990,
+    "head_roll": 1075,
+    "head_turret": 1190
+  },
+  "sad_sigh": {
+    "head_pitch": 1810
+  },
+  "surprised": {
+    "head_pitch": 1210,
+    "right_arm_pitch": 1460,
+    "right_arm_roll": 930,
+    "left_arm_pitch": 1605,
+    "left_arm_roll": 2040
+  },
+  "worried": {
+    "head_turret": 840,
+    "head_pitch": 1860,
+    "right_arm_pitch": 1160,
+    "left_arm_pitch": 1907
+  },
+  "worried_tremble_a": {
+    "head_roll": 1265
+  },
+  "worried_tremble_b": {
+    "head_roll": 1125
+  },
+  "calm_a": {
+    "left_leg": 1755,
+    "right_leg": 1755
+  },
+  "calm_b": {
+    "left_leg": 1979,
+    "right_leg": 1965
+  },
+  "tired_droop": {
+    "head_pitch": 2010,
+    "head_roll": 1295
+  },
+  "tired_lift": {
+    "head_pitch": 1730,
+    "head_roll": 1225
+  },
+  "shy": {
+    "head_turret": 1530,
+    "head_pitch": 1830,
+    "head_roll": 1095,
+    "right_arm_pitch": 1160
+  },
+  "shy_peek": {
+    "head_turret": 1370,
+    "head_pitch": 1730
+  },
+  "frustrated": {
+    "head_pitch": 1790,
+    "right_arm_roll": 700,
+    "left_arm_roll": 2270
+  },
+  "frustrated_l": {
+    "head_turret": 1450
+  },
+  "frustrated_r": {
+    "head_turret": 1130
+  },
+  "worried_peek": {
+    "head_turret": 1140,
+    "head_pitch": 1760
+  },
+  "goodbye_a": {
+    "right_arm_pitch": 1620,
+    "right_arm_roll": 1220,
+    "right_arm_elbow": 2070,
+    "head_roll": 1345
+  },
+  "listen": {
+    "head_roll": 975,
+    "head_pitch": 1690
+  },
+  "listen_nod": {
+    "head_roll": 975,
+    "head_pitch": 1810
+  },
+  "look_there": {
+    "head_turret": 890,
+    "right_arm_pitch": 1360,
+    "right_arm_roll": 930,
+    "right_arm_elbow": 525
+  },
+  "look_there_check": {
+    "head_turret": 1290
+  },
+  "good_job_a": {
+    "head_pitch": 1510,
+    "right_arm_pitch": 1460,
+    "right_arm_roll": 630,
+    "left_arm_pitch": 1605,
+    "left_arm_roll": 2340
+  },
+  "good_job_b": {
+    "head_pitch": 1390,
+    "right_arm_pitch": 1560,
+    "right_arm_roll": 930,
+    "left_arm_pitch": 1505,
+    "left_arm_roll": 2040
+  },
+  "breathe_in": {
+    "head_pitch": 1460,
+    "right_arm_pitch": 1260,
+    "right_arm_roll": 880,
+    "left_arm_pitch": 1806,
+    "left_arm_roll": 2090
+  }
+}
