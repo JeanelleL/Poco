@@ -4,7 +4,3 @@ dist
 .DS_Store
 .venv
 __pycache__
-
-# The Capacitor iOS project lives on the ios-app-shell branch; its generated
-# files (public/, capacitor.config.json, cordova stubs) must never be committed.
-ios/
