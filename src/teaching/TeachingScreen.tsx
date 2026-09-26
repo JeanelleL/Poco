@@ -38,6 +38,16 @@ export function TeachingScreen() {
 
   return (
     <div ref={rootRef} className="teaching">
+      {/* Same header as the other modes; focused views (a tile, the editor, a lesson) have their own. */}
+      {list && (
+        <header className="screen-header">
+          <p className="eyebrow">Teaching mode</p>
+          <h1 className="headline" tabIndex={-1}>
+            Feelings, one tile at a time
+          </h1>
+          <p className="helper">Tap a tile and Poco shows that feeling with their belly, their color and a movement.</p>
+        </header>
+      )}
       {list && (
         <TeachBar
           current={list}

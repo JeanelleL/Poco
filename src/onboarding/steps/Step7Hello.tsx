@@ -47,15 +47,16 @@ export function Step7Hello() {
         : 'When I feel happy, my belly glows yellow!',
       gesture: 'happy',
       pattern: 'happy',
-      color: '#F2C230',
+      color: '#FFCE00',
       action: 'Happy dance',
     },
     {
       text: calming
         ? `When I feel upset, I ${calming}. Then I feel calm and glow green.`
-        : 'When I feel calm, it glows green.',
+        : 'When I feel calm, my belly glows green.',
       gesture: 'calm',
-      pattern: 'calm',
+      // The whole belly glows green (like emotions.py show_color), matching the words.
+      pattern: 'solid',
       color: '#3FA36B',
       action: 'Slow sway',
     },
@@ -92,7 +93,8 @@ export function Step7Hello() {
       window.setTimeout(() => {
         setCurrent(script.length);
         setPhase('done');
-        play('happy', ORANGE, 'star', "That was fun! Let's go learn some feelings.");
+        // Heart, leading into the heart in the wake-up intro that follows.
+        play('happy', ORANGE, 'heart', "That was fun! Let's go learn some feelings.");
       }, script.length * LINE_MS),
     );
   };
@@ -102,7 +104,7 @@ export function Step7Hello() {
       <StepHeader
         step={7}
         title={`Say hello to ${child}`}
-        helper={`Turn Poco so ${child} can see his face, then tap Start. Poco will introduce himself with this script.`}
+        helper={`Turn Poco to face ${child}, then tap Start. Poco will introduce themself with this script.`}
       />
       <ol className="script rise d3" aria-label="Poco's hello script">
         {script.map((line, i) => {

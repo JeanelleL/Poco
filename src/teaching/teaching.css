@@ -10,6 +10,9 @@
   justify-content: space-between;
   gap: 16px;
 }
+.screen-header + .teach-bar {
+  margin-top: 24px;
+}
 
 /* Underlined text tabs, so this second level doesn't look like the mode bar above it. */
 .teach-switch {
@@ -38,16 +41,18 @@
   border: 0;
   border-bottom: 4px solid transparent;
   background: transparent;
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 21px;
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
   line-height: 1;
   color: var(--ink-3);
   cursor: pointer;
   transition: color .2s, border-color .2s;
 }
 .teach-switch-btn.is-on {
-  color: var(--ink);
+  color: var(--orange-text);
   border-bottom-color: var(--orange);
 }
 
@@ -139,6 +144,19 @@
   cursor: pointer;
 }
 
+/* A feeling's face tile with its color tile underneath. */
+.tile-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.teach-tile.is-color {
+  height: 110px;
+  justify-content: center;
+  padding: 10px 8px;
+}
+
 .teach-tile.is-new {
   justify-content: center;
   padding-top: 10px;
@@ -146,6 +164,10 @@
   border: 2px dashed var(--line-2);
   box-shadow: none;
   color: var(--ink-2);
+}
+/* The label mustn't grow here, or it pushes the + up; the pair sits in the middle. */
+.teach-tile.is-new .teach-tile-label {
+  flex: none;
 }
 
 .teach-tile-label {
@@ -420,6 +442,63 @@
   color: var(--ink-3);
 }
 /* ---------- Movement chips ---------- */
+.move-mode {
+  margin: 0 0 14px;
+}
+.mix-hint {
+  margin: 0 0 4px;
+}
+/* Each step of Mix your own is a small card; steps play top to bottom. */
+.mix-steps {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.mix-step {
+  padding: 14px 16px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+.mix-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  margin-bottom: 6px;
+}
+.mix-step-title {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.mix-step .motion-row + .motion-row {
+  margin-top: 12px;
+}
+.mix-add {
+  margin-top: 12px;
+}
+.move-group-label {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.motion-row .motion-row-chips {
+  margin-top: 8px;
+}
+.motion-row-chips {
+  gap: 6px;
+  margin-top: 0;
+}
+.motion-row-chips .chip {
+  padding: 0 14px;
+}
+
 .motion-row + .motion-row {
   margin-top: 18px;
 }

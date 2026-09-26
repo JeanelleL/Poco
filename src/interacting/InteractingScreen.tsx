@@ -6,7 +6,7 @@ import { pocoClient } from '../poco/pocoClient';
 import { ChunkyButton } from '../ui/ChunkyButton';
 import { FeedbackForm } from './FeedbackForm';
 import { SessionDetail } from './SessionSummary';
-import { countFeelings, dayLabel, effectiveEvents, minutesLabel, weeklyTrend } from './sessionStats';
+import { dayLabel, minutesLabel, notesLabel } from './sessionStats';
 import './interacting.css';
 
 const PAST_SHOWN = 10;
@@ -14,10 +14,11 @@ const PAST_SHOWN = 10;
 const MIN_SESSION_MS = 20000;
 
 /**
- * Poco does the watching and responding himself; this screen is his on/off
- * switch, one setting, and what he noticed: this session as feeling bars, and
- * past sessions (saved on this iPad) with a one-line weekly trend. Leaving the
- * screen or Stop Poco pauses him, so he never keeps going unseen.
+ * Social Mode: Poco faces the person the child is with, reads their face and
+ * voice, and guides the child. Poco does that themself; this screen is their
+ * on/off switch and quick notes of what they took in, for this session and
+ * past ones (saved on this iPad). Leaving the screen or Stop Poco pauses them,
+ * so they never keep going unseen.
  */
 export function InteractingScreen() {
   const { state, poco, play, showBelly, mirror, saveSession } = useApp();
@@ -74,7 +75,7 @@ export function InteractingScreen() {
     return pocoClient.onEvent((e) => {
       const s = sessionRef.current;
       if (!s) return;
-      const next = { ...s, end: e.at, events: [...s.events, { feeling: e.feeling, said: e.said, at: e.at }] };
+      const next = { ...s, end: e.at, events: [...s.events, { feeling: e.feeling, said: e.said, why: e.why, at: e.at }] };
       setSession(next);
       saveSession(next);
       const feeling = EMOTIONS.find((x) => x.id === e.feeling);
@@ -100,7 +101,7 @@ export function InteractingScreen() {
   const start = () => {
     const now = Date.now();
     setSession({ id: `session-${now}`, start: now, end: now, events: [] });
-    play('wave', ORANGE, 'heart', "I'm watching and listening!");
+    play('listen', ORANGE, 'heart', "I'm watching and listening!");
   };
 
   const pause = () => {
@@ -111,8 +112,8 @@ export function InteractingScreen() {
   // While running, the summary is this session; otherwise the most recent saved one.
   const [latest, ...older] = state.sessions;
   const shown = session ?? latest;
-  const past = session ? state.sessions : older;
-  const trend = weeklyTrend(state.sessions);
+  // A running session is saved as it goes, so leave it out of the past list.
+  const past = session ? state.sessions.filter((s) => s.id !== session.id) : older;
   const reviewSession = reviewing ? state.sessions.find((s) => s.id === reviewing) : undefined;
 
   if (reviewSession) {
@@ -126,12 +127,13 @@ export function InteractingScreen() {
   return (
     <div ref={rootRef} className="interacting">
       <header className="screen-header">
-        <p className="eyebrow">Interacting mode</p>
+        <p className="eyebrow">Social mode</p>
         <h1 className="headline" tabIndex={-1}>
           Poco joins in
         </h1>
         <p className="helper">
-          Poco watches faces, listens to voices and responds with his own feelings, words and moves. You just switch him on.
+          Turn Poco to face the person {state.child.name.trim() || 'your child'} is with. Poco reads their face and voice and helps{' '}
+          {state.child.name.trim() || 'your child'} understand how they feel.
         </p>
       </header>
 
@@ -163,7 +165,7 @@ export function InteractingScreen() {
           {shown && (
             <p className="int-meta">
               {!session && `${dayLabel(shown.start)} · `}
-              {minutesLabel(shown.start, session ? Date.now() : shown.end)} · {shown.events.length} noticed
+              {minutesLabel(shown.start, session ? Date.now() : shown.end)} · {notesLabel(shown.events.length)}
             </p>
           )}
         </div>
@@ -175,14 +177,13 @@ export function InteractingScreen() {
             live={!!session}
           />
         ) : (
-          <p className="int-empty">Start Poco to see what he notices. Each session is saved on this iPad.</p>
+          <p className="int-empty">Start Poco to see quick notes of what they notice. Each session is saved on this iPad.</p>
         )}
       </section>
 
       {past.length > 0 && (
         <section className="int-section">
           <h2 className="int-section-title">Past sessions</h2>
-          {trend && <p className="int-trend">{trend}</p>}
           <ul className="past-list">
             {past.slice(0, PAST_SHOWN).map((s) => (
               <PastSession key={s.id} session={s} onFeedback={() => setReviewing(s.id)} />
@@ -196,25 +197,13 @@ export function InteractingScreen() {
 
 function PastSession({ session, onFeedback }: { session: InteractSession; onFeedback: () => void }) {
   const [open, setOpen] = useState(false);
-  const top = countFeelings(effectiveEvents(session)).slice(0, 3);
   const rating = session.feedback?.rating;
   return (
     <li className={`past-item${open ? ' is-open' : ''}`}>
       <button type="button" className="past-row" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="past-when">{dayLabel(session.start)}</span>
         <span className="past-meta">
-          {minutesLabel(session.start, session.end)} · {session.events.length} noticed
-        </span>
-        <span className="past-top">
-          {top.map((c) => {
-            const e = EMOTIONS.find((x) => x.id === c.feeling);
-            return (
-              <span key={c.feeling} className="past-chip">
-                {e && <LedMatrix pattern={e.pattern} color={e.color} size={3} gap={1} />}
-                {e?.label ?? c.feeling} {c.count}
-              </span>
-            );
-          })}
+          {minutesLabel(session.start, session.end)} · {notesLabel(session.events.length)}
         </span>
         {rating && <span className={`past-rating is-${rating.toLowerCase()}`}>{rating}</span>}
         <svg className="past-caret" width="14" height="9" viewBox="0 0 14 9" aria-hidden="true">

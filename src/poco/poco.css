@@ -13,7 +13,7 @@
 /* Drawable LED grid */
 .led-editor {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 4px;
   width: 100%;
   max-width: 260px;
@@ -74,9 +74,10 @@
   display: block;
 }
 
+/* 8 dots of 10px + 7 gaps of 4px = 108px, centered on the belly (x = 150). */
 .belly-led {
   position: absolute;
-  left: 97px;
+  left: 96px;
   top: 183px;
 }
 

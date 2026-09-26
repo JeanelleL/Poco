@@ -13,7 +13,7 @@ import type { Pronouns } from '../onboarding/childProfile';
 import { IDLE_PATTERNS, STEP_COUNT, type Step } from '../onboarding/stepMeta';
 import { ORANGE, type CustomEmotion } from '../poco/emotions';
 import { patternRows, type Pattern, type PatternKey } from '../poco/patterns';
-import { pocoClient, toMotion, type Move, type PocoSettings } from '../poco/pocoClient';
+import { pocoClient, robotMove, type Move, type PocoSettings } from '../poco/pocoClient';
 import type { Lesson } from '../teaching/lessons';
 
 // v2: step 2 was split in two (7 steps), so v1 step numbers no longer line up.
@@ -64,8 +64,10 @@ export interface AppState {
   hiddenTiles: string[];
   /** The adult's own lesson plans (presets aren't stored). */
   lessons: Lesson[];
-  /** Interacting Mode history, newest first. Feeling names and times only; stays on this iPad. */
+  /** Social Mode activity log, newest first: what Poco did and said, and when. Stays on this iPad. */
   sessions: InteractSession[];
+  /** Setup was just finished: play the one-time wake-up animation. */
+  introPending: boolean;
 }
 
 /** One Start → Pause of Interacting Mode. */
@@ -73,18 +75,18 @@ export interface InteractSession {
   id: string;
   start: number;
   end: number;
-  events: { feeling: string; said?: string; at: number }[];
+  /** What Poco noticed (the other person's feeling), what they said if anything, and why. */
+  events: { feeling: string; said?: string; why?: string; at: number }[];
   /** Optional review by the adult afterwards. */
   feedback?: SessionFeedback;
 }
 
 export type SessionRating = 'Tough' | 'OK' | 'Great';
 
+/** Earlier builds also saved per-moment `corrections`; they're ignored now (the log doesn't track feelings). */
 export interface SessionFeedback {
   rating?: SessionRating;
   note?: string;
-  /** Moments Poco got wrong, by event time: the real feeling id, or 'none' if no one was there. */
-  corrections: Record<number, string>;
 }
 
 // Keeps local storage small: plenty for weeks of daily sessions.
@@ -135,6 +137,7 @@ export const DEFAULT_STATE: AppState = {
   hiddenTiles: [],
   lessons: [],
   sessions: [],
+  introPending: false,
 };
 
 const INITIAL_POCO: PocoView = {
@@ -165,10 +168,11 @@ type Action =
   | { type: 'setFeedback'; id: string; feedback: SessionFeedback }
   | { type: 'setConnection'; connection: Connection }
   | { type: 'complete' }
+  | { type: 'finishIntro' }
   | { type: 'restartSetup' }
   | { type: 'setScreen'; screen: Screen }
   | { type: 'reset' }
-  | { type: 'play'; gesture: Move; color: string; pattern: Pattern; say?: string }
+  | { type: 'play'; gesture: Move | null; color: string; pattern: Pattern; say?: string }
   | { type: 'pocoIdle'; line?: string }
   | { type: 'stop' }
   | { type: 'showBelly'; pattern: Pattern; color: string }
@@ -245,7 +249,13 @@ function reducer(s: FullState, a: Action): FullState {
     case 'setConnection':
       return { ...s, data: { ...s.data, connection: a.connection } };
     case 'complete':
-      return { ...s, data: { ...s.data, completed: true, screen: s.data.startMode }, poco: idle(s.poco) };
+      return {
+        ...s,
+        data: { ...s.data, completed: true, screen: s.data.startMode, introPending: true },
+        poco: idle(s.poco),
+      };
+    case 'finishIntro':
+      return { ...s, data: { ...s.data, introPending: false } };
     case 'restartSetup':
       // Answers stay filled in; only the flow starts over.
       return { ...s, data: { ...s.data, completed: false, step: 1 }, poco: idle(s.poco) };
@@ -348,19 +358,21 @@ interface AppContextValue {
   clearSessions: () => void;
   /** Save the adult's review of a session (keeps its place in the history). */
   setFeedback: (id: string, feedback: SessionFeedback) => void;
-  /** Show in the app what Poco did on his own (Interacting Mode). Nothing is sent to the robot. */
+  /** Show in the app what Poco did on their own (Interacting Mode). Nothing is sent to the robot. */
   mirror: (pattern: Pattern, color: string, line?: string) => void;
   /** Resolves true when Poco answered. */
   connect: () => Promise<boolean>;
   complete: () => void;
+  /** The wake-up animation after setup has played. */
+  finishIntro: () => void;
   /** Back to step 1 of setup, keeping the answers. */
   restartSetup: () => void;
   setScreen: (screen: Screen) => void;
-  /** Poco stops moving and talking right away and goes back to his idle belly. */
+  /** Poco stops moving and talking right away and goes back to their idle belly. */
   stop: () => void;
   reset: () => void;
   /** Gesture + belly + optional line, in one call. Also sent to the robot. */
-  play: (gesture: Move, color: string, pattern: Pattern, say?: string) => void;
+  play: (gesture: Move | null, color: string, pattern: Pattern, say?: string) => void;
   /** Show a picture on the belly without a gesture (e.g. live while drawing a face). */
   showBelly: (pattern: Pattern, color: string) => void;
   /** Stop performing and go back to the step's idle belly. */
@@ -449,6 +461,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     else dispatch({ type: 'showBelly', pattern, color });
   }, []);
   const complete = useCallback(() => dispatch({ type: 'complete' }), []);
+  const finishIntro = useCallback(() => dispatch({ type: 'finishIntro' }), []);
   const restartSetup = useCallback(() => dispatch({ type: 'restartSetup' }), []);
   const setScreen = useCallback((screen: Screen) => dispatch({ type: 'setScreen', screen }), []);
 
@@ -476,10 +489,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'reset' });
   }, []);
 
-  const play = useCallback((gesture: Move, color: string, pattern: Pattern, say?: string) => {
+  const play = useCallback((gesture: Move | null, color: string, pattern: Pattern, say?: string) => {
     dispatch({ type: 'play', gesture, color, pattern, say });
     pocoClient.perform({
-      motion: toMotion(gesture),
+      ...(gesture ? robotMove(gesture) : {}),
       belly: { pattern: patternRows(pattern), color, brightness: ref.current.data.comfort.brightness / 100 },
       say,
     });
@@ -536,6 +549,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mirror,
       connect,
       complete,
+      finishIntro,
       restartSetup,
       setScreen,
       stop,
@@ -567,6 +581,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mirror,
       connect,
       complete,
+      finishIntro,
       restartSetup,
       setScreen,
       stop,

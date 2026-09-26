@@ -9,10 +9,14 @@ import { SettingsScreen } from '../settings/SettingsScreen';
 import { TeachingScreen } from '../teaching/TeachingScreen';
 import { idlePattern, useApp, type Connection, type Screen, type StartMode } from './AppProvider';
 import { Wordmark } from './PocoStage';
+import { WakeUpIntro } from './WakeUpIntro';
 import './layout.css';
 import './shell.css';
 
 const MODES: StartMode[] = ['Teaching', 'Interacting', 'Fun'];
+
+/** What the tabs say. 'Interacting' stays the saved id so older saves still work. */
+export const MODE_LABELS: Record<StartMode, string> = { Teaching: 'Teaching', Interacting: 'Social', Fun: 'Fun' };
 
 const SCREENS: Record<Screen, ComponentType> = {
   Teaching: TeachingScreen,
@@ -56,6 +60,7 @@ export function AppShell() {
         <ScreenComponent key={`${state.screen}-${resetNonce}`} />
       </main>
       <NowPlaying />
+      {state.introPending && <WakeUpIntro />}
     </div>
   );
 }
@@ -77,7 +82,7 @@ function ModeTabs() {
             aria-current={on ? 'page' : undefined}
             onClick={() => setScreen(m)}
           >
-            {m}
+            {MODE_LABELS[m]}
           </button>
         );
       })}

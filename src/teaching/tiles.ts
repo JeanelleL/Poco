@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import { useApp, type AppState } from '../app/AppProvider';
 import { calmingPhrase, firstFavorite, objectPronoun } from '../onboarding/childProfile';
 import { childOrDefault, friendOrName } from '../onboarding/stepMeta';
-import { EMOTIONS, type CustomEmotion } from '../poco/emotions';
+import { EMOTIONS, customMove, type CustomEmotion } from '../poco/emotions';
 import type { Pattern } from '../poco/patterns';
 import type { Move } from '../poco/pocoClient';
 
@@ -34,8 +34,8 @@ export interface Tile {
   section: Section;
   color: string;
   pattern: Pattern;
-  /** A named gesture, or a body + flipper combination for custom tiles. */
-  move: Move;
+  /** Poco's movement (a real robot movement, or a body + flipper pair from older custom tiles); null = no movement. */
+  move: Move | null;
   /** For the adult: what this feeling or tool is. */
   about?: string;
   /** For the adult: what it looks like in the body. */
@@ -80,7 +80,11 @@ interface Preset {
   lines: (c: Ctx) => TileLine[];
 }
 
-const core = (id: string) => EMOTIONS.find((e) => e.id === id)!;
+// Face, color and movement come from the shared feelings list (poco/emotions.ts).
+const core = (id: string) => {
+  const { core: _, ...e } = EMOTIONS.find((x) => x.id === id)!;
+  return e;
+};
 
 /** Feelings follow one teaching order: name it, notice it, why, what helps, ask. */
 const feeling = (name: string, notice: string, why: string, help: string | null, ask: string): TileLine[] => [
@@ -143,20 +147,6 @@ const PRESETS: Preset[] = [
       ),
   },
   {
-    ...core('scared'),
-    section: 'core',
-    about: 'Scared is a jumpy feeling when something feels new or unsafe.',
-    clues: ['Wide eyes', 'Shaky body', 'Fast heartbeat'],
-    lines: (c) =>
-      feeling(
-        'This is me feeling scared.',
-        "When I'm scared, my body shakes.",
-        'Loud noises can make me feel scared.',
-        c.calming ? `When I'm scared, I ${c.calming}.` : "When I'm scared, I ask a grown-up for help.",
-        `What makes you feel scared, ${c.friend}?`,
-      ),
-  },
-  {
     ...core('surprised'),
     section: 'core',
     about: 'Surprised is a quick feeling when something unexpected happens.',
@@ -168,6 +158,20 @@ const PRESETS: Preset[] = [
         'A surprise party makes me feel surprised.',
         null,
         `Has something surprised you, ${c.friend}?`,
+      ),
+  },
+  {
+    ...core('neutral'),
+    section: 'core',
+    about: 'Neutral is a steady, okay feeling: not very happy and not very sad.',
+    clues: ['Relaxed face', 'Small smile', 'Easy breathing'],
+    lines: (c) =>
+      feeling(
+        'This is me feeling okay.',
+        'When I feel neutral, my face is relaxed.',
+        'I feel okay on a normal, quiet day.',
+        null,
+        `How are you feeling right now, ${c.friend}?`,
       ),
   },
   {
@@ -187,12 +191,8 @@ const PRESETS: Preset[] = [
 
   /* ---------- More feelings ---------- */
   {
-    id: 'excited',
-    label: 'Excited',
+    ...core('excited'),
     section: 'more',
-    color: '#EE8A2C',
-    pattern: 'excited',
-    gesture: 'happy',
     about: 'Excited is a buzzy, happy feeling about something coming soon.',
     clues: ["Can't sit still", 'Big smile', 'Fast talking'],
     lines: (c) =>
@@ -205,66 +205,8 @@ const PRESETS: Preset[] = [
       ),
   },
   {
-    id: 'proud',
-    label: 'Proud',
+    ...core('tired'),
     section: 'more',
-    color: '#2BB3B1',
-    pattern: 'proud',
-    gesture: 'happy',
-    about: 'Proud is a good feeling after working hard or doing something well.',
-    clues: ['Standing tall', 'Chin up', 'Smile'],
-    lines: (c) =>
-      feeling(
-        'This is me feeling proud.',
-        "When I'm proud, I stand up tall.",
-        'I feel proud when I try something hard.',
-        null,
-        `What are you proud of, ${c.friend}?`,
-      ),
-  },
-  {
-    id: 'silly',
-    label: 'Silly',
-    section: 'more',
-    color: '#E86FA8',
-    pattern: 'silly',
-    gesture: 'happy',
-    about: 'Silly is a playful feeling when we want to laugh and be funny.',
-    clues: ['Giggles', 'Funny faces', 'Wiggly body'],
-    lines: (c) =>
-      feeling(
-        'This is me feeling silly!',
-        "When I'm silly, I make funny faces.",
-        'Funny jokes make me feel silly.',
-        null,
-        `Can you make a silly face, ${c.friend}?`,
-      ),
-  },
-  {
-    id: 'loving',
-    label: 'Loving',
-    section: 'more',
-    color: '#E0527A',
-    pattern: 'loving',
-    gesture: 'calm',
-    about: 'Loving is a warm feeling for people and things we care about.',
-    clues: ['Soft smile', 'Wanting a hug', 'Warm chest'],
-    lines: (c) =>
-      feeling(
-        'This is me feeling loving.',
-        'When I feel loving, I want a hug.',
-        'I feel loving with my family.',
-        null,
-        `Who do you love, ${c.friend}?`,
-      ),
-  },
-  {
-    id: 'tired',
-    label: 'Tired',
-    section: 'more',
-    color: '#7A8C99',
-    pattern: 'tired',
-    gesture: 'sad',
     about: 'Tired is when the body needs rest or sleep.',
     clues: ['Yawning', 'Heavy eyes', 'Slow body'],
     lines: (c) =>
@@ -277,30 +219,8 @@ const PRESETS: Preset[] = [
       ),
   },
   {
-    id: 'bored',
-    label: 'Bored',
+    ...core('worried'),
     section: 'more',
-    color: '#8A98A1',
-    pattern: 'bored',
-    gesture: 'sad',
-    about: 'Bored is when nothing feels interesting right now.',
-    clues: ['Flat face', 'Slumped body', 'Sighing'],
-    lines: (c) =>
-      feeling(
-        'This is me feeling bored.',
-        "When I'm bored, I sigh.",
-        'Waiting a long time makes me bored.',
-        "When I'm bored, I find something new to do.",
-        `What do you do when you're bored, ${c.friend}?`,
-      ),
-  },
-  {
-    id: 'worried',
-    label: 'Worried',
-    section: 'more',
-    color: '#7C5CC4',
-    pattern: 'worried',
-    gesture: 'scared',
     about: 'Worried is a tight feeling when we think something bad might happen.',
     clues: ['Tummy ache', 'Wrinkled forehead', 'Lots of questions'],
     lines: (c) =>
@@ -313,30 +233,23 @@ const PRESETS: Preset[] = [
       ),
   },
   {
-    id: 'frustrated',
-    label: 'Frustrated',
+    ...core('silly'),
     section: 'more',
-    color: '#C9582C',
-    pattern: 'frustrated',
-    gesture: 'angry',
-    about: "Frustrated is when something is hard and doesn't work yet.",
-    clues: ['Groaning', 'Tense hands', 'Wanting to give up'],
+    about: 'Silly is a playful feeling when we want to laugh and be funny.',
+    clues: ['Giggles', 'Funny faces', 'Wiggly body'],
     lines: (c) =>
       feeling(
-        'This is me feeling frustrated.',
-        "When I'm frustrated, my hands feel tight.",
-        "I feel frustrated when my puzzle won't fit.",
-        c.calming ? `I ${c.calming}, then I try again.` : 'I take a break, then I try again.',
-        `What feels hard for you, ${c.friend}?`,
+        'This is me feeling silly!',
+        "When I'm silly, I make funny faces.",
+        'Funny jokes make me feel silly.',
+        null,
+        `Can you make a silly face, ${c.friend}?`,
       ),
   },
+
   {
-    id: 'shy',
-    label: 'Shy',
+    ...core('shy'),
     section: 'more',
-    color: '#D77FA1',
-    pattern: 'shy',
-    gesture: 'scared',
     about: 'Shy is feeling unsure around new people or places.',
     clues: ['Looking down', 'Quiet voice', 'Hiding'],
     lines: (c) =>
@@ -349,32 +262,27 @@ const PRESETS: Preset[] = [
       ),
   },
   {
-    id: 'confused',
-    label: 'Confused',
+    ...core('frustrated'),
     section: 'more',
-    color: '#5A9BD5',
-    pattern: 'confused',
-    gesture: 'surprised',
-    about: "Confused is when something doesn't make sense yet.",
-    clues: ['Tilted head', 'Scrunched face', 'Questions'],
+    about: "Frustrated is when something is hard and doesn't work yet.",
+    clues: ['Groaning', 'Tense hands', 'Wanting to give up'],
     lines: (c) =>
       feeling(
-        'This is me feeling confused.',
-        "When I'm confused, I tilt my head.",
-        'New rules can make me confused.',
-        "When I'm confused, I ask a question.",
-        `What can we do when we're confused, ${c.friend}?`,
+        'This is me feeling frustrated.',
+        "When I'm frustrated, my hands feel tight.",
+        "I feel frustrated when my puzzle won't fit.",
+        c.calming ? `I ${c.calming}, then I try again.` : 'I take a break, then I try again.',
+        `What feels hard for you, ${c.friend}?`,
       ),
   },
-
   /* ---------- Calm-down tools ---------- */
   {
     id: 'breaths',
     label: 'Deep breaths',
     section: 'calm',
-    color: '#3FA36B',
-    pattern: 'balloon',
-    gesture: 'calm',
+    color: '#3F8CFF', // led_matrix breathe orb, between its center (60,150,255) and edge (0,40,255)
+    pattern: 'orb',
+    gesture: 'breathe',
     about: 'Slow breathing calms the body. Breathe in like filling a balloon, then let it out slowly.',
     lines: (c) =>
       routine(
@@ -387,32 +295,17 @@ const PRESETS: Preset[] = [
     id: 'count',
     label: 'Count to five',
     section: 'calm',
-    color: '#2BB3B1',
+    color: '#00D4B5', // led_matrix count teal, LED 0,170,120
     pattern: 'five',
     gesture: 'calm',
     about: 'Counting slowly gives the body time to settle before acting.',
     lines: () => routine("Let's count to five together.", ['One… two… three…', 'Four… five.'], 'I feel calmer now.'),
   },
   {
-    id: 'squeeze',
-    label: 'Squeeze and let go',
-    section: 'calm',
-    color: '#3B7DD8',
-    pattern: 'ball',
-    gesture: 'calm',
-    about: 'Squeezing the hands tight and then relaxing them lets tension out of the body.',
-    lines: () =>
-      routine(
-        "Let's squeeze our hands tight.",
-        ['Squeeze, squeeze, squeeze…', 'Now let go. Floppy hands!'],
-        'My body feels softer now.',
-      ),
-  },
-  {
     id: 'quiet',
     label: 'Quiet time',
     section: 'calm',
-    color: '#5B6FD8',
+    color: '#8E6EE9', // led_matrix quiet moon, LED 70,40,210
     pattern: 'moon',
     gesture: 'calm',
     about: 'A short break somewhere quiet helps when there is too much noise or busyness.',
@@ -428,8 +321,8 @@ const PRESETS: Preset[] = [
     label: 'Ask for help',
     section: 'calm',
     color: '#E0A82E',
-    pattern: 'hand',
-    gesture: 'wave',
+    pattern: 'question',
+    gesture: 'wave_right',
     about: 'Asking a grown-up is always a good choice when something feels too big.',
     lines: (c) =>
       routine(
@@ -440,7 +333,7 @@ const PRESETS: Preset[] = [
   },
 ];
 
-/** Starter lines for a tile the adult makes. */
+/** Starter lines, only when the adult taps Suggest some lines in the editor. */
 export function defaultLines(label: string, kind: TileKind, c: Ctx): string[] {
   const l = label.trim().toLowerCase() || 'this';
   return kind === 'calm'
@@ -448,8 +341,9 @@ export function defaultLines(label: string, kind: TileKind, c: Ctx): string[] {
     : [`This is me feeling ${l}.`, `What makes you feel ${l}, ${c.friend}?`];
 }
 
-function fromCustom(c: CustomEmotion, ctx: Ctx, section: Section, base?: Tile): Tile {
+function fromCustom(c: CustomEmotion, section: Section, base?: Tile): Tile {
   const kind = c.kind ?? base?.kind ?? 'feeling';
+  const own = customMove(c);
   return {
     id: c.id,
     label: c.label,
@@ -457,10 +351,12 @@ function fromCustom(c: CustomEmotion, ctx: Ctx, section: Section, base?: Tile): 
     section,
     color: c.color,
     pattern: c.pattern ?? base?.pattern ?? 'sparkle',
-    move: c.motion ?? c.gesture ?? base?.move ?? 'happy',
+    // A tile that never chose a movement keeps the preset's (or Happy for older custom tiles).
+    move: own === undefined ? base?.move ?? 'happy' : own,
     about: base?.about,
     clues: base?.clues,
-    lines: (c.lines ?? defaultLines(c.label, kind, ctx)).map((text) => ({ text })),
+    // No auto-filled lines: a custom tile says only what the adult wrote.
+    lines: (c.lines ?? []).map((text) => ({ text })),
     custom: c,
   };
 }
@@ -473,9 +369,13 @@ export function buildTiles(s: AppState): Tile[] {
     const { gesture, lines, ...rest } = p;
     const tile: Tile = { ...rest, move: gesture, kind: p.section === 'calm' ? 'calm' : 'feeling', lines: lines(ctx) };
     const edit = edits.get(p.id);
-    return edit ? fromCustom(edit, ctx, p.section, tile) : tile;
+    return edit ? fromCustom(edit, p.section, tile) : tile;
   });
-  const mine = s.customEmotions.filter((c) => !c.replaces).map((c) => fromCustom(c, ctx, 'mine'));
+  // Edits of presets that no longer exist (e.g. an edited "Proud") become the adult's own tiles.
+  const presetIds = new Set(PRESETS.map((p) => p.id));
+  const mine = s.customEmotions
+    .filter((c) => !c.replaces || !presetIds.has(c.replaces))
+    .map((c) => fromCustom(c, 'mine'));
   return [...presets, ...mine];
 }
 

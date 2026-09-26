@@ -3,9 +3,9 @@ import { useApp } from '../app/AppProvider';
 import { CUSTOM_COLORS, type CustomEmotion } from '../poco/emotions';
 import { LedEditor } from '../poco/LedEditor';
 import { BLANK_ROWS, patternRows } from '../poco/patterns';
-import { toMotion, type Motion } from '../poco/pocoClient';
+import { isMix, toRobotMove } from '../poco/pocoClient';
 import { ChunkyButton } from '../ui/ChunkyButton';
-import { MotionControls, TilePreview } from './MotionPicker';
+import { MoveControls, TilePreview, type MoveChoice } from './MotionPicker';
 import { ConfirmButton } from '../ui/ConfirmButton';
 import { PlusIcon, type Go } from './TeachingScreen';
 import { defaultLines, makeCtx, useTiles } from './tiles';
@@ -29,22 +29,20 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
   const [label, setLabel] = useState(existing?.label ?? '');
   const [color, setColor] = useState<string>(existing?.color ?? CUSTOM_COLORS[0].hex);
   const [face, setFace] = useState<string[]>(() => (existing ? patternRows(existing.pattern) : [...BLANK_ROWS]));
-  const [motion, setMotion] = useState<Motion>(() => toMotion(existing?.move ?? 'happy'));
-  const [lines, setLines] = useState<string[]>(
-    () => existing?.lines.map((l) => l.text) ?? defaultLines('', kind, ctx),
-  );
-  // Starter lines follow the name until the adult edits them.
-  const [linesTouched, setLinesTouched] = useState(!!existing);
+  // New tiles start with no movement and one empty line: nothing is filled in for the adult.
+  const [move, setMove] = useState<MoveChoice>(() => {
+    const m = existing?.move;
+    if (!m) return null;
+    return isMix(m) ? m : toRobotMove(m);
+  });
+  const [lines, setLines] = useState<string[]>(() => {
+    const saved = existing?.lines.map((l) => l.text) ?? [];
+    return saved.length ? saved : [''];
+  });
 
   const name = label.trim();
   const cleanLines = lines.map((l) => l.trim()).filter(Boolean);
-  const missing = !name
-    ? 'Add a name to save'
-    : !face.some((r) => r.includes('#'))
-      ? 'Draw the belly lights to save'
-      : !cleanLines.length
-        ? 'Add a line for Poco to save'
-        : '';
+  const missing = !name ? 'Add a name to save' : !face.some((r) => r.includes('#')) ? 'Draw the belly lights to save' : '';
   const title = existing ? (existing.custom && !existing.custom.replaces ? 'Edit tile' : 'Edit ready-made tile') : 'New tile';
   // Keep a preset's own color pickable even if it isn't in the palette.
   const swatches =
@@ -52,19 +50,18 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
       ? [{ name: 'Original', hex: existing.color }, ...CUSTOM_COLORS]
       : CUSTOM_COLORS;
 
-  // ctx and kind are left out on purpose: neither can change on this screen.
-  useEffect(() => {
-    if (!linesTouched) setLines(defaultLines(name, kind, ctx));
-  }, [name, linesTouched]);
-
   // The real Poco's belly mirrors the drawing as you make it.
   useEffect(() => {
     showBelly(face, color);
   }, [face, color, showBelly]);
 
-  const editLines = (next: string[]) => {
-    setLinesTouched(true);
-    setLines(next);
+  const editLines = (next: string[]) => setLines(next.length ? next : ['']);
+
+  // Only when asked: add starter lines, replacing the list if it's still empty.
+  const suggest = () => {
+    const ideas = defaultLines(name, kind, ctx);
+    const kept = lines.filter((l) => l.trim());
+    setLines([...kept, ...ideas.filter((i) => !kept.includes(i))].slice(0, MAX_LINES));
   };
 
   const save = () => {
@@ -74,13 +71,15 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
       label: name.charAt(0).toUpperCase() + name.slice(1),
       color,
       pattern: face,
-      motion,
+      // A mix is saved as its parts; otherwise the movement's name (or 'none').
+      move: isMix(move) ? undefined : move ?? 'none',
+      mix: isMix(move) ? move : undefined,
       kind,
       lines: cleanLines,
       replaces: existing?.custom?.replaces ?? (existing && !existing.custom ? existing.id : undefined),
     };
     saveEmotion(saved);
-    play(motion, color, face, cleanLines[0]);
+    play(move, color, face, cleanLines[0]);
     go({ name: 'tile', id: saved.id });
   };
 
@@ -150,13 +149,13 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
 
           <section className="editor-section">
             <span className="editor-label">Movement</span>
-            <p className="section-hint">Poco does the body move and the flipper move together.</p>
-            <MotionControls value={motion} onChange={setMotion} />
+            <p className="section-hint">How Poco moves when this tile plays.</p>
+            <MoveControls value={move} onChange={setMove} />
           </section>
 
           <section className="editor-section">
             <span className="editor-label">What Poco says</span>
-            <p className="section-hint">Short lines work best. The first one plays when you tap the tile.</p>
+            <p className="section-hint">Optional. Short lines work best; the first one plays when you tap the tile.</p>
             <ol className="line-list">
               {lines.map((l, i) => (
                 <li key={i} className="line-row">
@@ -173,7 +172,7 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
                     type="button"
                     className="icon-btn"
                     aria-label={`Remove line ${i + 1}`}
-                    disabled={lines.length === 1}
+                    disabled={lines.length === 1 && !lines[0]}
                     onClick={() => editLines(lines.filter((_, j) => j !== i))}
                   >
                     <CrossIcon />
@@ -181,12 +180,17 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
                 </li>
               ))}
             </ol>
-            {lines.length < MAX_LINES && (
-              <button type="button" className="add-line" onClick={() => editLines([...lines, ''])}>
-                <PlusIcon />
-                Add a line
+            <div className="build-add">
+              {lines.length < MAX_LINES && (
+                <button type="button" className="add-line" onClick={() => editLines([...lines, ''])}>
+                  <PlusIcon />
+                  Add a line
+                </button>
+              )}
+              <button type="button" className="add-line" onClick={suggest}>
+                Suggest some lines
               </button>
-            )}
+            </div>
           </section>
 
           <div className="editor-actions">
@@ -214,10 +218,10 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
         <TilePreview
           heading="Preview"
           label={name || 'New tile'}
-          motion={motion}
+          move={move}
           face={face}
           color={color}
-          onTry={() => play(motion, color, face, cleanLines[0])}
+          onTry={() => play(move, color, face, cleanLines[0])}
         />
       </div>
     </>

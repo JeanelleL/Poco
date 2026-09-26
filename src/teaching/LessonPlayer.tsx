@@ -50,7 +50,7 @@ export function LessonPlayer({ id, go }: { id: string; go: Go }) {
   const goTo = (i: number) => {
     setCurrent(i);
     if (i < steps.length) perform(steps[i]);
-    else play('happy', ORANGE, 'star', `Great job, ${friendOrName(state.child.name)}!`);
+    else play('good_job', ORANGE, 'star', `Great job, ${friendOrName(state.child.name)}!`);
   };
 
   return (

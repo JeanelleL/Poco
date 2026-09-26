@@ -3,6 +3,7 @@ import { useApp } from '../app/AppProvider';
 import { SPEED_MULTIPLIER, friendOrName } from '../onboarding/stepMeta';
 import { ORANGE } from '../poco/emotions';
 import { LedMatrix } from '../poco/LedMatrix';
+import { moveInfo } from '../poco/pocoClient';
 import { ChunkyButton } from '../ui/ChunkyButton';
 import { FUN_ROUTINES, type FunRoutine, type FunStep } from './funRoutines';
 import './fun.css';
@@ -35,7 +36,9 @@ export function FunScreen() {
     setActive(null);
   }, [poco.stopId]);
 
-  const perform = (s: FunStep) => play(s.motion, s.color, s.pattern, s.say);
+  const perform = (s: FunStep) => play(s.move, s.color, s.pattern, s.say);
+  // A step lasts as long as Poco's movement, unless it sets its own length.
+  const stepMs = (s: FunStep) => (s.ms ?? (s.move ? moveInfo(s.move).ms : 3000)) * speed;
 
   const start = (r: FunRoutine) => {
     clearTimers();
@@ -50,13 +53,13 @@ export function FunScreen() {
       const s = r.steps[i % r.steps.length];
       perform(s);
       i += 1;
-      loopTimer.current = window.setTimeout(tick, s.ms * speed);
+      loopTimer.current = window.setTimeout(tick, stepMs(s));
     };
     tick();
     endTimer.current = window.setTimeout(() => {
       window.clearTimeout(loopTimer.current);
       setActive(null);
-      play('happy', ORANGE, 'star', `Great dancing, ${friendOrName(state.child.name)}!`);
+      play('good_job', ORANGE, 'star', `Great dancing, ${friendOrName(state.child.name)}!`);
     }, r.seconds * 1000);
   };
 
@@ -128,20 +131,20 @@ function FunSection({
     <section className="fun-section">
       <h2 className="fun-section-title">{title}</h2>
       <div className="fun-grid">
-        {routines.map((r) => {
+        {routines.map((r, i) => {
           const on = r.id === active?.id;
           return (
             <button
               key={r.id}
               type="button"
-              className={`fun-card${on ? ' is-on' : ''}`}
-              style={{ '--c': r.color } as CSSProperties}
+              className={`fun-card grid-in${on ? ' is-on' : ''}`}
+              style={{ '--c': r.color, '--i': i } as CSSProperties}
               aria-pressed={on}
               onClick={() => onStart(r)}
             >
               {on && <span key={active!.runId} className="fun-glow flash" aria-hidden="true" />}
               <span className="fun-icon">
-                <LedMatrix pattern={r.icon} color={r.color} size={6} gap={2} />
+                <LedMatrix pattern={r.icon} color={r.color} size={6} gap={2} scan />
               </span>
               <span className="fun-card-title">{r.title}</span>
               <span className="fun-card-blurb">{r.blurb}</span>

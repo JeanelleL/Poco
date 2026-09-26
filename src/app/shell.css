@@ -229,9 +229,96 @@
   box-shadow: 0 1px 0 var(--navy-ledge);
 }
 
+/* ---------- Wake-up intro (once, after setup) ----------
+   A white LED panel. 0–0.8 s: dots switch on from the center out.
+   ~1 s: everything scatters outward except a glowing heart in the middle.
+   ~1.6 s: the white panel fades, revealing the app; the heart scatters last. */
+/* Only opacity and transform animate (no color changes), so the iPad's GPU does the work. */
+.wake {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  cursor: pointer;
+}
+.wake::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  animation: wake-bg .55s ease-in 1.5s forwards;
+}
+@keyframes wake-bg {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dots start dim (an unlit LED) and brighten; the heart's dots are pink and leave last. */
+.wake-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--orange);
+  opacity: .14;
+  will-change: opacity, transform;
+  animation:
+    wake-on .3s ease-out calc(var(--d) * 550ms) forwards,
+    wake-off .5s ease-in calc(1000ms + var(--r) * 400ms) forwards;
+}
+.wake-dot.is-heart {
+  background: #F0507F;
+  animation:
+    wake-on .3s ease-out calc(var(--d) * 550ms) forwards,
+    wake-off .5s ease-in calc(1750ms + var(--r) * 300ms) forwards;
+}
+@keyframes wake-on {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes wake-off {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(.2);
+  }
+}
+
 /* ---------- Shared screen bits ---------- */
 .screen-header {
   margin-top: 4px;
+}
+
+/* Profile and settings: one scrolling form. */
+.settings {
+  max-width: 820px;
+}
+
+.settings .input {
+  max-width: none;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 16px 22px;
+  background: var(--card);
+  border-radius: 24px;
+  box-shadow: 0 4px 0 var(--card-ledge);
+}
+
+.settings-status {
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink);
 }
 
 .settings-block {

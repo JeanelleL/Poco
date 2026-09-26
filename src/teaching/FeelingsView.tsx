@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useApp } from '../app/AppProvider';
 import { LedMatrix } from '../poco/LedMatrix';
 import { PlusIcon, type Go } from './TeachingScreen';
@@ -28,9 +28,6 @@ export function FeelingsView({ go }: { go: Go }) {
 
   return (
     <>
-      <h1 className="sr-only" tabIndex={-1}>
-        Feelings
-      </h1>
       <div className="chips" role="group" aria-label="Show">
         {filters.map((f) => (
           <button
@@ -51,9 +48,11 @@ export function FeelingsView({ go }: { go: Go }) {
           <TileGrid tiles={hidden} onOpen={(t) => go({ name: 'tile', id: t.id })} />
         </section>
       ) : (
-        shown.map((s) => {
+        shown.map((s, k) => {
           const tiles = visible.filter((t) => t.section === s.id);
           if (!tiles.length && s.id !== 'mine') return null;
+          // The wave carries on from the sections above.
+          const start = shown.slice(0, k).reduce((n, x) => n + visible.filter((t) => t.section === x.id).length, 0);
           return (
             <section key={s.id} className="tile-section" aria-labelledby={`sec-${s.id}`}>
               {filter === 'all' && (
@@ -61,7 +60,7 @@ export function FeelingsView({ go }: { go: Go }) {
                   {s.label}
                 </h2>
               )}
-              <TileGrid tiles={tiles} onOpen={open} onNew={s.id === 'mine' ? newTile : undefined} />
+              <TileGrid tiles={tiles} onOpen={open} onNew={s.id === 'mine' ? newTile : undefined} start={start} />
             </section>
           );
         })
@@ -70,15 +69,48 @@ export function FeelingsView({ go }: { go: Go }) {
   );
 }
 
-function TileGrid({ tiles, onOpen, onNew }: { tiles: Tile[]; onOpen: (t: Tile) => void; onNew?: () => void }) {
+/**
+ * Ready-made feelings come as a pair, like led_matrix/emotions.py's show_face /
+ * show_color: the face on top (opens the tile), and below it the same 8x8 fully
+ * lit in the feeling's color (fills Poco's belly with it). Calm-down tools and the
+ * adult's own tiles are a single tile.
+ *
+ * Tiles 'power on' in a quick wave when the grid appears (grid-in, --i = order).
+ */
+function TileGrid({
+  tiles,
+  onOpen,
+  onNew,
+  start = 0,
+}: {
+  tiles: Tile[];
+  onOpen: (t: Tile) => void;
+  onNew?: () => void;
+  /** Where this grid's tiles fall in the page-wide power-on wave. */
+  start?: number;
+}) {
+  // A color tile is a real action like a face tile (new line, the bar's belly re-scans), just without a movement.
+  const { play } = useApp();
   return (
     <div className="tile-grid">
-      {tiles.map((t) => (
-        <button key={t.id} type="button" className="tile teach-tile" onClick={() => onOpen(t)}>
-          <LedMatrix pattern={t.pattern} color={t.color} size={7} gap={3} />
-          <span className="teach-tile-label">{t.label}</span>
-          {t.custom?.replaces && <span className="teach-tile-tag">Edited</span>}
-        </button>
+      {tiles.map((t, i) => (
+        <div key={t.id} className="tile-stack grid-in" style={{ '--i': start + i } as CSSProperties}>
+          <button type="button" className="tile teach-tile" onClick={() => onOpen(t)}>
+            <LedMatrix pattern={t.pattern} color={t.color} size={7} gap={3} scan />
+            <span className="teach-tile-label">{t.label}</span>
+            {t.custom?.replaces && <span className="teach-tile-tag">Edited</span>}
+          </button>
+          {t.kind === 'feeling' && t.section !== 'mine' && (
+            <button
+              type="button"
+              className="tile teach-tile is-color"
+              aria-label={`Show the ${t.label.toLowerCase()} color`}
+              onClick={() => play(null, t.color, 'solid', `This is my ${t.label.toLowerCase()} color.`)}
+            >
+              <LedMatrix pattern="solid" color={t.color} size={7} gap={3} scan />
+            </button>
+          )}
+        </div>
       ))}
       {onNew && (
         <button type="button" className="teach-tile is-new" onClick={onNew}>

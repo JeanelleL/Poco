@@ -2,7 +2,7 @@ import { PillGroup } from '../../ui/PillGroup';
 import { useApp, usePocoLine, type Role } from '../../app/AppProvider';
 import { StepHeader } from '../StepHeader';
 
-const ROLES: readonly Role[] = ['Teacher', 'Therapist', 'Parent'];
+export const ROLES: readonly Role[] = ['Teacher', 'Therapist', 'Parent'];
 
 export function Step1You() {
   const { state, patchGuide, setCurious } = useApp();
