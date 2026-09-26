@@ -107,8 +107,13 @@ class Robot:
         Never raises: a missing robot is the normal case during development, and
         it should not take the conversation down with it.
         """
-        self._connect_servos()
+        # Belly first, deliberately. ServoLink auto-detects by USB vendor id,
+        # so with only the matrix board plugged in it would pick that port, talk
+        # servo protocol at the wrong baud rate and reset the board mid-face.
+        # Connecting the belly first leaves its port held open, so the servo
+        # probe skips it instead.
         self._connect_belly()
+        self._connect_servos()
         if not (self.servos_ready or self.belly_ready):
             self._say("no robot found - running without one")
         return self.servos_ready or self.belly_ready
@@ -117,9 +122,23 @@ class Robot:
         try:
             import poco_motion as pm
             from gestures import GESTURES
-            from servo_link import ServoLink
+            from servo_link import ServoLink, find_ports
 
-            self._link = ServoLink(self.servo_port)
+            port = self.servo_port
+            if port is None:
+                # Auto-detect picks any Arduino-looking port, and on a one-board
+                # setup that is the belly. Opening it talks the wrong protocol
+                # at the wrong baud rate and resets the board mid-face, so the
+                # belly's port is taken off the table rather than probed.
+                taken = self._belly_port()
+                options = [p.device for p in find_ports() if p.device != taken]
+                if not options:
+                    raise RuntimeError(
+                        "no free Arduino port"
+                        + (f" ({taken} is the belly)" if taken else "")
+                    )
+                port = options[0]
+            self._link = ServoLink(port)
             self._poco = pm.Poco(self._link, speed=self.speed, amount=self.amount)
             self._gestures = GESTURES
             self._poses = pm.load_poses()
@@ -137,6 +156,12 @@ class Robot:
         except Exception as exc:
             self.last_error = f"servos: {exc}"
             self._say(f"no servos ({type(exc).__name__}: {exc})")
+
+    def _belly_port(self) -> str | None:
+        try:
+            return self._matrix.ser.port if self._matrix is not None else None
+        except Exception:
+            return None
 
     def _connect_belly(self) -> None:
         try:
@@ -216,8 +241,11 @@ class Robot:
             self._say(f"stop failed: {exc}")
 
     def close(self) -> None:
-        self._moves.shutdown(wait=False)
-        self._belly.shutdown(wait=False)
+        # Drain first: shutting down without waiting closed the serial port
+        # while queued belly frames were still being drawn, and every one of
+        # them failed with "port that is not open".
+        self._moves.shutdown(wait=True)
+        self._belly.shutdown(wait=True)
         self.stop()
         try:
             if self._matrix is not None:

@@ -1,12 +1,9 @@
 """Which camera and microphone Poco is listening and looking through.
 
-Development currently runs on the MacBook's built-in camera and mic. The C270
-is off being mounted on the penguin; when it comes back, set:
-
-    CAMERA = 0          # the C270 took index 0 when it was plugged in
-    MIC = "C270"
-
-and check with `uv run emotion_demo.py --list-cameras`.
+The C270 is mounted on the penguin and is what Poco sees and hears through.
+It takes camera index 0 when plugged in; without it, index 0 is the MacBook's
+own camera, so check with `uv run emotion_demo.py --list-cameras` after any
+hardware change.
 
 Camera indices are worth re-checking every time the hardware changes. OpenCV
 has no way to ask a camera its name, so a camera is only ever an index, and
@@ -21,4 +18,4 @@ three different demos.
 CAMERA = 0
 
 # Matched against a substring of the input device's name.
-MIC = "MacBook"
+MIC = "C270"
