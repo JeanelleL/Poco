@@ -1,0 +1,257 @@
+/*
+ * On-screen versions of Poco's real movements (servos/gestures.py). Each one
+ * follows the gesture's description and rough timing, and ends back at home,
+ * like the robot. Parts:
+ *   .tilt   whole body leaning / rocking (pivots at the feet)
+ *   .bodyg  body bounce and slump
+ *   .face   face moving inside the head: nods, head shakes, looking, peeking
+ *   .flipL  Poco's RIGHT arm (on the left of the screen): + rotation = out/up, − = in front
+ *   .flipR  Poco's LEFT arm: − rotation = out/up, + = in front
+ * Durations scale with the Comfort speed (--spd).
+ */
+.face {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* ---------- Emotions ---------- */
+
+/* Bouncy half-sway, head up, a small flap on each rock. */
+.m-happy .tilt { animation: rock-3 calc(4.6s * var(--spd)) ease-in-out; }
+.m-happy .bodyg { animation: hop calc(.76s * var(--spd)) ease-in-out 5; }
+.m-happy .face { animation: face-up calc(4.6s * var(--spd)) ease-in-out; }
+.m-happy .flipL { animation: small-flapL calc(.38s * var(--spd)) ease-in-out 10 alternate; }
+.m-happy .flipR { animation: small-flapR calc(.38s * var(--spd)) ease-in-out 10 alternate; }
+
+/* Head slowly droops, one slow sigh, then slowly recovers. */
+.m-sad .face { animation: sad-face calc(8.8s * var(--spd)) ease-in-out; }
+.m-sad .bodyg { animation: sad-body calc(8.8s * var(--spd)) ease-in-out; }
+.m-sad .flipL { animation: sad-armL calc(8.8s * var(--spd)) ease-in-out; }
+.m-sad .flipR { animation: sad-armR calc(8.8s * var(--spd)) ease-in-out; }
+
+/* Quick but small: arms up, head back, hold, relax. */
+.m-surprised .flipL { animation: surprised-armL calc(2.8s * var(--spd)) ease-out; }
+.m-surprised .flipR { animation: surprised-armR calc(2.8s * var(--spd)) ease-out; }
+.m-surprised .face { animation: surprised-face calc(2.8s * var(--spd)) ease-out; }
+.m-surprised .bodyg { animation: jolt calc(.6s * var(--spd)) cubic-bezier(.3, 1.6, .5, 1); }
+
+/* Turns away with arms up in front, trembles, peeks back nervously, hides again, settles. */
+.m-worried .tilt { animation: worried-turn calc(6.5s * var(--spd)) ease-in-out; }
+.m-worried .bodyg { animation: tremble calc(.07s * var(--spd)) linear 24 alternate calc(1.2s * var(--spd)); }
+.m-worried .face { animation: worried-peek calc(6.5s * var(--spd)) ease-in-out; }
+.m-worried .flipL { animation: cover-armL calc(6.5s * var(--spd)) ease-in-out; }
+.m-worried .flipR { animation: cover-armR calc(6.5s * var(--spd)) ease-in-out; }
+
+/* Slow, gentle rock with the head level. */
+.m-calm .tilt { animation: rock-slow calc(4s * var(--spd)) ease-in-out 2; }
+
+/* Head drifts down, lifts back partway, drifts again, then wakes up. */
+.m-tired .face { animation: tired-face calc(7.8s * var(--spd)) ease-in-out; }
+.m-tired .bodyg { animation: tired-body calc(7.8s * var(--spd)) ease-in-out; }
+
+/* Looks away with an arm up in front, peeks back, hides again. */
+.m-shy .face { animation: shy-face calc(6.3s * var(--spd)) ease-in-out; }
+.m-shy .tilt { animation: shy-lean calc(6.3s * var(--spd)) ease-in-out; }
+.m-shy .flipL { animation: shy-arm calc(6.3s * var(--spd)) ease-in-out; }
+
+/* Head down, arms stiff, a slow head shake. */
+.m-frustrated .face { animation: frustrated-face calc(5.1s * var(--spd)) ease-in-out; }
+.m-frustrated .flipL { animation: stiff-armL calc(5.1s * var(--spd)) ease-in-out; }
+.m-frustrated .flipR { animation: stiff-armR calc(5.1s * var(--spd)) ease-in-out; }
+
+/* ---------- Basics ---------- */
+
+/* Nod: head bobs down and up, three times. */
+.m-yes .face { animation: nod calc(.6s * var(--spd)) ease-in-out 3; }
+
+/* Shake: head turns side to side, three times. */
+.m-no .face { animation: shake-head calc(.8s * var(--spd)) ease-in-out 3; }
+
+/* Puzzled penguin: tilt one way and hold, then the other. */
+.m-curious .tilt { animation: curious-tilt calc(3.7s * var(--spd)) ease-in-out; }
+
+/* Slow scan of the room: left, up, right, back to centre. */
+.m-look_around .face { animation: look-around calc(5.4s * var(--spd)) ease-in-out; }
+
+/* Arm raised high and waving, body tipped toward it. */
+.m-wave_right .flipL { animation: wave-armL calc(4.4s * var(--spd)) ease-in-out; }
+.m-wave_right .tilt { animation: lean-right calc(4.4s * var(--spd)) ease-in-out; }
+.m-wave_left .flipR { animation: wave-armR calc(4.4s * var(--spd)) ease-in-out; }
+.m-wave_left .tilt { animation: lean-left calc(4.4s * var(--spd)) ease-in-out; }
+
+/* Excited flap: both arms swing out and back together. */
+.m-flap .flipL { animation: flapL calc(.35s * var(--spd)) ease-in-out 8 alternate; }
+.m-flap .flipR { animation: flapR calc(.35s * var(--spd)) ease-in-out 8 alternate; }
+
+/* Foot rock: tipping side to side, 0.8 s per side. */
+.m-sway .tilt { animation: rock-wide calc(1.6s * var(--spd)) ease-in-out 5; }
+
+/* Sway with the head tilting into each rock, then flap with a head bob. */
+.m-happy_dance .tilt { animation: dance-rock calc(8.6s * var(--spd)) ease-in-out; }
+.m-happy_dance .face { animation: dance-face calc(8.6s * var(--spd)) ease-in-out; }
+.m-happy_dance .flipL { animation: dance-armL calc(8.6s * var(--spd)) ease-in-out; }
+.m-happy_dance .flipR { animation: dance-armR calc(8.6s * var(--spd)) ease-in-out; }
+
+/* Look up, raise the right arm and wave, a little head tilt, home. */
+.m-hello .face { animation: hello-face calc(6.2s * var(--spd)) ease-in-out; }
+.m-hello .flipL { animation: hello-arm calc(6.2s * var(--spd)) ease-in-out; }
+.m-hello .tilt { animation: hello-tilt calc(6.2s * var(--spd)) ease-in-out; }
+
+/* ---------- Social cues ---------- */
+
+/* A slower, softer wave with a head tilt. */
+.m-goodbye .flipL { animation: goodbye-arm calc(4.8s * var(--spd)) ease-in-out; }
+.m-goodbye .tilt { animation: goodbye-tilt calc(4.8s * var(--spd)) ease-in-out; }
+
+/* Head tilts toward the child, two slow nods while listening. */
+.m-listen .tilt { animation: listen-tilt calc(5.9s * var(--spd)) ease-in-out; }
+.m-listen .face { animation: listen-nods calc(5.9s * var(--spd)) ease-in-out; }
+
+/* Point and look, glance back at the child, look again. */
+.m-look_there .flipL { animation: point-arm calc(6s * var(--spd)) ease-in-out; }
+.m-look_there .face { animation: look-there-face calc(6s * var(--spd)) ease-in-out; }
+
+/* Mini celebration: both arms up, bouncing out, head up. */
+.m-good_job .flipL { animation: cheer-armL calc(3.4s * var(--spd)) ease-in-out; }
+.m-good_job .flipR { animation: cheer-armR calc(3.4s * var(--spd)) ease-in-out; }
+.m-good_job .bodyg { animation: hop calc(.6s * var(--spd)) ease-in-out 4; }
+.m-good_job .face { animation: face-up calc(3.4s * var(--spd)) ease-in-out; }
+
+/* ---------- Regulation ---------- */
+
+/* Arms rise and open breathing in (4 s), hold, slowly lower breathing out (6 s). Three breaths. */
+.m-breathe .flipL { animation: breathe-armL calc(12s * var(--spd)) ease-in-out 3; }
+.m-breathe .flipR { animation: breathe-armR calc(12s * var(--spd)) ease-in-out 3; }
+.m-breathe .bodyg { animation: breathe-body calc(12s * var(--spd)) ease-in-out 3; }
+
+/* ---------- Mix your own: one step = 2 s, every command starts and ends at rest ----------
+   Head moves the face, each arm moves its flipper, feet move the whole body,
+   so any combination can play at once. Commands are in Poco's own left/right:
+   their right (look_right, step_right, rightArm) is the LEFT of the screen. */
+.x-head-nod .face { animation: nod-2 calc(2s * var(--spd)) ease-in-out; }
+.x-head-shake .face { animation: shake-2 calc(2s * var(--spd)) ease-in-out; }
+.x-head-tilt .face { animation: head-tilt calc(2s * var(--spd)) ease-in-out; }
+.x-head-look_up .face { animation: look-up calc(2s * var(--spd)) ease-in-out; }
+.x-head-look_down .face { animation: look-down calc(2s * var(--spd)) ease-in-out; }
+.x-head-look_right .face { animation: look-screen-left calc(2s * var(--spd)) ease-in-out; }
+.x-head-look_left .face { animation: look-screen-right calc(2s * var(--spd)) ease-in-out; }
+
+.x-rarm-up .flipL { animation: arms-upL calc(2s * var(--spd)) ease-in-out; }
+.x-rarm-down .flipL { animation: arm-downL calc(2s * var(--spd)) ease-in-out; }
+.x-rarm-wave .flipL { animation: wave-armL calc(2s * var(--spd)) ease-in-out; }
+.x-rarm-flap .flipL { animation: flapL calc(.25s * var(--spd)) ease-in-out 8 alternate; }
+.x-rarm-out .flipL { animation: arm-outL calc(2s * var(--spd)) ease-in-out; }
+.x-rarm-bend .flipL { animation: arm-bendL calc(2s * var(--spd)) ease-in-out; }
+.x-larm-up .flipR { animation: arms-upR calc(2s * var(--spd)) ease-in-out; }
+.x-larm-down .flipR { animation: arm-downR calc(2s * var(--spd)) ease-in-out; }
+.x-larm-wave .flipR { animation: wave-armR calc(2s * var(--spd)) ease-in-out; }
+.x-larm-flap .flipR { animation: flapR calc(.25s * var(--spd)) ease-in-out 8 alternate; }
+.x-larm-out .flipR { animation: arm-outR calc(2s * var(--spd)) ease-in-out; }
+.x-larm-bend .flipR { animation: arm-bendR calc(2s * var(--spd)) ease-in-out; }
+
+/* Feet lift like the leg servos (left_foot_up / right_foot_up): up and out so they
+   clear the body, with the body leaning onto the other foot. Poco's right foot = .footL. */
+.footL, .footR { transform-box: fill-box; }
+.footL { transform-origin: 90% 0; }
+.footR { transform-origin: 10% 0; }
+.x-feet-lift_right .footL { animation: foot-upL calc(2s * var(--spd)) ease-in-out; }
+.x-feet-lift_right .tilt { animation: lean-left calc(2s * var(--spd)) ease-in-out; }
+.x-feet-lift_left .footR { animation: foot-upR calc(2s * var(--spd)) ease-in-out; }
+.x-feet-lift_left .tilt { animation: lean-right calc(2s * var(--spd)) ease-in-out; }
+.x-feet-up_down .footL { animation: feet-up-downL calc(2s * var(--spd)) ease-in-out; }
+.x-feet-up_down .footR { animation: feet-up-downR calc(2s * var(--spd)) ease-in-out; }
+.x-feet-alternate .footL { animation: alt-footL calc(2s * var(--spd)) ease-in-out; }
+.x-feet-alternate .footR { animation: alt-footR calc(2s * var(--spd)) ease-in-out; }
+.x-feet-alternate .tilt { animation: rock-wide calc(2s * var(--spd)) ease-in-out reverse; }
+
+@keyframes nod-2 { 0%, 100% { transform: none; } 20%, 60% { transform: translateY(7px); } 40%, 80% { transform: translateY(-3px); } }
+@keyframes shake-2 { 0%, 100% { transform: none; } 15%, 62% { transform: translateX(-8px); } 38%, 85% { transform: translateX(8px); } }
+@keyframes head-tilt { 0%, 100% { transform: none; } 15%, 40% { transform: rotate(-9deg); } 60%, 85% { transform: rotate(9deg); } }
+@keyframes look-up { 0%, 100% { transform: none; } 20%, 80% { transform: translateY(-8px); } }
+@keyframes look-down { 0%, 100% { transform: none; } 20%, 80% { transform: translateY(10px); } }
+@keyframes look-screen-left { 0%, 100% { transform: none; } 20%, 80% { transform: translateX(-10px); } }
+@keyframes look-screen-right { 0%, 100% { transform: none; } 20%, 80% { transform: translateX(10px); } }
+
+@keyframes arms-upL { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(105deg); } }
+@keyframes arms-upR { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(-105deg); } }
+@keyframes arm-downL { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(-16deg); } }
+@keyframes arm-downR { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(16deg); } }
+@keyframes arm-outL { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(55deg); } }
+@keyframes arm-outR { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(-55deg); } }
+@keyframes arm-bendL { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(-42deg) scale(.9, .72); } }
+@keyframes arm-bendR { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(42deg) scale(.9, .72); } }
+
+@keyframes foot-upL { 0%, 100% { transform: none; } 20%, 80% { transform: translate(-6px, -14px) rotate(14deg); } }
+@keyframes foot-upR { 0%, 100% { transform: none; } 20%, 80% { transform: translate(6px, -14px) rotate(-14deg); } }
+@keyframes feet-up-downL { 0%, 50%, 100% { transform: none; } 25%, 75% { transform: translate(-6px, -14px) rotate(14deg); } }
+@keyframes feet-up-downR { 0%, 50%, 100% { transform: none; } 25%, 75% { transform: translate(6px, -14px) rotate(-14deg); } }
+@keyframes alt-footL { 0%, 50%, 100% { transform: none; } 25% { transform: translate(-6px, -14px) rotate(14deg); } }
+@keyframes alt-footR { 0%, 50%, 100% { transform: none; } 75% { transform: translate(6px, -14px) rotate(-14deg); } }
+
+/* ---------- Keyframes ---------- */
+@keyframes rock-3 { 0%, 100% { transform: rotate(0); } 12% { transform: rotate(-3deg); } 26% { transform: rotate(3deg); } 40% { transform: rotate(-3deg); } 54% { transform: rotate(3deg); } 68% { transform: rotate(-3deg); } 82% { transform: rotate(0); } }
+@keyframes rock-slow { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-2.5deg); } 75% { transform: rotate(2.5deg); } }
+@keyframes rock-wide { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+@keyframes face-up { 0%, 100% { transform: none; } 15%, 80% { transform: translateY(-4px); } }
+@keyframes small-flapL { to { transform: rotate(22deg); } }
+@keyframes small-flapR { to { transform: rotate(-22deg); } }
+
+@keyframes sad-face { 0%, 100% { transform: none; } 23%, 40% { transform: translateY(8px); } 58% { transform: translateY(11px); } 72%, 80% { transform: translateY(8px); } }
+@keyframes sad-body { 0%, 100% { transform: none; } 23%, 80% { transform: translateY(6px) scale(1.02, .97); } 58% { transform: translateY(8px) scale(1.03, .95); } }
+@keyframes sad-armL { 0%, 100% { transform: none; } 23%, 80% { transform: rotate(-14deg); } }
+@keyframes sad-armR { 0%, 100% { transform: none; } 23%, 80% { transform: rotate(14deg); } }
+
+@keyframes surprised-armL { 0%, 100% { transform: none; } 14%, 57% { transform: rotate(60deg); } }
+@keyframes surprised-armR { 0%, 100% { transform: none; } 14%, 57% { transform: rotate(-60deg); } }
+@keyframes surprised-face { 0%, 100% { transform: none; } 14%, 57% { transform: translateY(-6px); } }
+
+@keyframes worried-turn { 0%, 100% { transform: none; } 15%, 80% { transform: rotate(-5deg); } 50%, 60% { transform: rotate(-2deg); } }
+@keyframes worried-peek { 0%, 100% { transform: none; } 15%, 45% { transform: translateX(-8px) translateY(3px); } 52%, 60% { transform: translateX(3px); } 67%, 80% { transform: translateX(-8px) translateY(3px); } }
+@keyframes cover-armL { 0%, 100% { transform: none; } 15%, 45% { transform: rotate(-46deg); } 52%, 60% { transform: rotate(-30deg); } 67%, 82% { transform: rotate(-46deg); } }
+@keyframes cover-armR { 0%, 100% { transform: none; } 15%, 45% { transform: rotate(46deg); } 52%, 60% { transform: rotate(30deg); } 67%, 82% { transform: rotate(46deg); } }
+
+@keyframes tired-face { 0%, 100% { transform: none; } 32%, 37% { transform: translateY(9px); } 46%, 50% { transform: translateY(4px); } 76%, 84% { transform: translateY(10px); } }
+@keyframes tired-body { 0%, 100% { transform: none; } 32%, 84% { transform: translateY(4px) scale(1.01, .98); } 46% { transform: translateY(2px); } }
+
+@keyframes shy-face { 0%, 100% { transform: none; } 19%, 32% { transform: translateX(-9px) translateY(3px); } 42%, 50% { transform: translateX(-2px); } 61%, 76% { transform: translateX(-9px) translateY(3px); } }
+@keyframes shy-lean { 0%, 100% { transform: none; } 19%, 76% { transform: rotate(4deg); } 46% { transform: rotate(2deg); } }
+@keyframes shy-arm { 0%, 100% { transform: none; } 19%, 32% { transform: rotate(-50deg); } 42%, 50% { transform: rotate(-30deg); } 61%, 78% { transform: rotate(-50deg); } }
+
+@keyframes frustrated-face { 0%, 100% { transform: none; } 16% { transform: translateY(6px); } 35% { transform: translateY(6px) translateX(-6px); } 50% { transform: translateY(6px) translateX(6px); } 63% { transform: translateY(6px) translateX(-6px); } 76% { transform: translateY(6px) translateX(6px); } 84% { transform: translateY(6px); } }
+@keyframes stiff-armL { 0%, 100% { transform: none; } 16%, 84% { transform: rotate(26deg); } }
+@keyframes stiff-armR { 0%, 100% { transform: none; } 16%, 84% { transform: rotate(-26deg); } }
+
+@keyframes nod { 0%, 100% { transform: none; } 30% { transform: translateY(7px); } 70% { transform: translateY(-3px); } }
+@keyframes shake-head { 0%, 100% { transform: none; } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+@keyframes curious-tilt { 0%, 100% { transform: none; } 16%, 38% { transform: rotate(-8deg); } 62%, 84% { transform: rotate(8deg); } }
+@keyframes look-around { 0%, 100% { transform: none; } 18%, 30% { transform: translateX(-9px); } 44%, 54% { transform: translateY(-7px); } 70%, 82% { transform: translateX(9px); } }
+
+@keyframes wave-armL { 0%, 100% { transform: none; } 20% { transform: rotate(95deg); } 32% { transform: rotate(65deg); } 44% { transform: rotate(95deg); } 56% { transform: rotate(65deg); } 68% { transform: rotate(95deg); } 80% { transform: rotate(80deg); } }
+@keyframes wave-armR { 0%, 100% { transform: none; } 20% { transform: rotate(-95deg); } 32% { transform: rotate(-65deg); } 44% { transform: rotate(-95deg); } 56% { transform: rotate(-65deg); } 68% { transform: rotate(-95deg); } 80% { transform: rotate(-80deg); } }
+@keyframes lean-right { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(-3deg); } }
+@keyframes lean-left { 0%, 100% { transform: none; } 20%, 80% { transform: rotate(3deg); } }
+
+@keyframes dance-rock { 0%, 100% { transform: none; } 9% { transform: rotate(-5deg); } 18% { transform: rotate(5deg); } 27% { transform: rotate(-5deg); } 36% { transform: rotate(5deg); } 45% { transform: rotate(-5deg); } 55% { transform: none; } }
+@keyframes dance-face { 0%, 100% { transform: none; } 9% { transform: translateX(-4px); } 18% { transform: translateX(4px); } 27% { transform: translateX(-4px); } 36% { transform: translateX(4px); } 45% { transform: translateX(-4px); } 55% { transform: none; } 62%, 70%, 78%, 86% { transform: translateY(-5px); } 66%, 74%, 82% { transform: none; } }
+@keyframes dance-armL { 0%, 55%, 100% { transform: none; } 60%, 68%, 76%, 84% { transform: rotate(40deg); } 64%, 72%, 80% { transform: rotate(5deg); } }
+@keyframes dance-armR { 0%, 55%, 100% { transform: none; } 60%, 68%, 76%, 84% { transform: rotate(-40deg); } 64%, 72%, 80% { transform: rotate(-5deg); } }
+
+@keyframes hello-face { 0%, 100% { transform: none; } 13%, 78% { transform: translateY(-5px); } }
+@keyframes hello-arm { 0%, 100% { transform: none; } 13% { transform: rotate(95deg); } 21% { transform: rotate(65deg); } 29% { transform: rotate(95deg); } 37% { transform: rotate(65deg); } 45% { transform: rotate(95deg); } 53% { transform: rotate(65deg); } 61%, 78% { transform: rotate(80deg); } }
+@keyframes hello-tilt { 0%, 62%, 100% { transform: none; } 70%, 84% { transform: rotate(-6deg); } }
+
+@keyframes goodbye-arm { 0%, 100% { transform: none; } 20% { transform: rotate(80deg); } 35% { transform: rotate(60deg); } 50% { transform: rotate(80deg); } 65% { transform: rotate(60deg); } 78% { transform: rotate(75deg); } }
+@keyframes goodbye-tilt { 0%, 100% { transform: none; } 20%, 78% { transform: rotate(-4deg); } }
+
+@keyframes listen-tilt { 0%, 100% { transform: none; } 14%, 86% { transform: rotate(5deg); } }
+@keyframes listen-nods { 0%, 14%, 86%, 100% { transform: none; } 30%, 60% { transform: translateY(6px); } 45%, 75% { transform: none; } }
+
+@keyframes point-arm { 0%, 100% { transform: none; } 17%, 83% { transform: rotate(72deg); } }
+@keyframes look-there-face { 0%, 100% { transform: none; } 17%, 33% { transform: translateX(-9px); } 43%, 53% { transform: translateX(2px); } 63%, 83% { transform: translateX(-9px); } }
+
+@keyframes cheer-armL { 0%, 100% { transform: none; } 15%, 39%, 63% { transform: rotate(112deg); } 27%, 51%, 75% { transform: rotate(82deg); } }
+@keyframes cheer-armR { 0%, 100% { transform: none; } 15%, 39%, 63% { transform: rotate(-112deg); } 27%, 51%, 75% { transform: rotate(-82deg); } }
+
+@keyframes breathe-armL { 0%, 100% { transform: none; } 33%, 42% { transform: rotate(55deg); } 92% { transform: none; } }
+@keyframes breathe-armR { 0%, 100% { transform: none; } 33%, 42% { transform: rotate(-55deg); } 92% { transform: none; } }
+@keyframes breathe-body { 0%, 100% { transform: none; } 33%, 42% { transform: scale(1.03, 1.02); } 92% { transform: none; } }

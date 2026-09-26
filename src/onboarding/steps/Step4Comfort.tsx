@@ -8,7 +8,7 @@ import { useApp, usePocoLine } from '../../app/AppProvider';
 import { StepHeader } from '../StepHeader';
 import { childOrDefault } from '../stepMeta';
 
-const SPEEDS: readonly PocoSettings['speed'][] = ['Gentle', 'Normal', 'Lively'];
+export const SPEEDS: readonly PocoSettings['speed'][] = ['Gentle', 'Normal', 'Lively'];
 
 export function Step4Comfort() {
   const { state, patchComfort, play } = useApp();

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { CUSTOM_COLORS, EMOTIONS, ORANGE, customToEmotion, type Emotion } from '../../poco/emotions';
+import { CORE_EMOTIONS, CUSTOM_COLORS, ORANGE, customToEmotion, type Emotion } from '../../poco/emotions';
 import { LedEditor } from '../../poco/LedEditor';
 import { LedMatrix } from '../../poco/LedMatrix';
 import { BLANK_ROWS, patternRows, type PatternKey } from '../../poco/patterns';
@@ -9,7 +9,7 @@ import { calmingPhrase } from '../childProfile';
 import { useApp, usePocoLine, type StartMode } from '../../app/AppProvider';
 import { StepHeader } from '../StepHeader';
 
-const HARD_FEELINGS = ['sad', 'angry', 'scared'];
+const HARD_FEELINGS = ['sad', 'angry', 'worried'];
 
 type Tab = 'feelings' | 'make' | 'modes';
 
@@ -95,7 +95,7 @@ export function Step5TryPoco() {
 
 function FeelingsTab({ selected, onSelect }: { selected: string | null; onSelect: (id: string) => void }) {
   const { state, play } = useApp();
-  const all: Emotion[] = [...EMOTIONS, ...state.customEmotions.map(customToEmotion)];
+  const all: Emotion[] = [...CORE_EMOTIONS, ...state.customEmotions.map(customToEmotion)];
   const calming = calmingPhrase(state.child.calming);
 
   // For hard feelings, Poco models the child's own calming strategy.
@@ -240,15 +240,15 @@ const MODES: {
     icon: 'apple',
     description: 'You tap a feeling. Poco acts it out with color, sound and movement.',
     say: 'In Teaching Mode, you tap a feeling and I act it out!',
-    gesture: 'wave',
+    gesture: 'yes',
   },
   {
     id: 'Interacting',
-    title: 'Interacting Mode',
+    title: 'Social Mode',
     icon: 'heart',
-    description: 'Poco watches, listens and joins in on his own with feelings, words and moves.',
-    say: 'In Interacting Mode, I watch, listen and join in!',
-    gesture: 'surprised',
+    description: 'Poco watches, listens and joins in on their own with feelings, words and moves.',
+    say: 'In Social Mode, I watch, listen and join in!',
+    gesture: 'listen',
   },
   {
     id: 'Fun',
@@ -256,7 +256,7 @@ const MODES: {
     icon: 'note',
     description: 'Dance breaks and games for when everyone needs a reset.',
     say: 'Fun Mode means dance party!',
-    gesture: 'happy',
+    gesture: 'happy_dance',
   },
 ];
 

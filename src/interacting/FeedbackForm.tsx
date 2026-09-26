@@ -101,7 +101,7 @@ export function FeedbackForm({ session, onDone }: { session: InteractSession; on
                     {guess && <LedMatrix pattern={guess.pattern} color={guess.color} size={4} gap={1.5} />}
                     {guess?.label ?? ev.feeling}
                   </span>
-                  <span className="int-said is-quiet">{ev.said ? `"${ev.said}"` : 'Showed it on his belly'}</span>
+                  <span className="int-said is-quiet">{ev.said ? `"${ev.said}"` : 'Showed it on their belly'}</span>
                   <select
                     className="review-select"
                     aria-label={`Was ${guess?.label ?? ev.feeling} right?`}

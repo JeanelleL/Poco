@@ -1,5 +1,5 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
-import { setDot } from './patterns';
+import { GRID, setDot } from './patterns';
 import './poco.css';
 
 interface LedEditorProps {
@@ -11,7 +11,7 @@ interface LedEditorProps {
 }
 
 /**
- * A 7x7 LED grid you can draw on. Tap a dot to flip it; drag to paint
+ * An 8x8 LED grid you can draw on. Tap a dot to flip it; drag to paint
  * (the first dot decides whether the drag turns dots on or off).
  * Keyboard: arrows move, Space/Enter flips.
  */
@@ -21,22 +21,22 @@ export function LedEditor({ rows, color, onChange, label }: LedEditorProps) {
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const paint = useRef<{ on: boolean; last: number } | null>(null);
-  const [focusIdx, setFocusIdx] = useState(24);
+  const [focusIdx, setFocusIdx] = useState(GRID * 3 + 3);
 
-  const isLit = (i: number) => rowsRef.current[Math.floor(i / 7)][i % 7] === '#';
+  const isLit = (i: number) => rowsRef.current[Math.floor(i / GRID)][i % GRID] === '#';
 
   const apply = (i: number, on: boolean) => {
     if (isLit(i) === on) return;
-    const next = setDot(rowsRef.current, Math.floor(i / 7), i % 7, on);
+    const next = setDot(rowsRef.current, Math.floor(i / GRID), i % GRID, on);
     rowsRef.current = next;
     onChange(next);
   };
 
   const cellAt = (x: number, y: number) => {
     const box = gridRef.current!.getBoundingClientRect();
-    const c = Math.floor(((x - box.left) / box.width) * 7);
-    const r = Math.floor(((y - box.top) / box.height) * 7);
-    return r < 0 || r > 6 || c < 0 || c > 6 ? -1 : r * 7 + c;
+    const c = Math.floor(((x - box.left) / box.width) * GRID);
+    const r = Math.floor(((y - box.top) / box.height) * GRID);
+    return r < 0 || r >= GRID || c < 0 || c >= GRID ? -1 : r * GRID + c;
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -63,14 +63,14 @@ export function LedEditor({ rows, color, onChange, label }: LedEditorProps) {
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const moves: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    const moves: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -GRID, ArrowDown: GRID };
     const d = moves[e.key];
     if (d === undefined) return;
     e.preventDefault();
-    const c = focusIdx % 7;
-    if ((d === -1 && c === 0) || (d === 1 && c === 6)) return;
+    const c = focusIdx % GRID;
+    if ((d === -1 && c === 0) || (d === 1 && c === GRID - 1)) return;
     const next = focusIdx + d;
-    if (next < 0 || next > 48) return;
+    if (next < 0 || next >= GRID * GRID) return;
     setFocusIdx(next);
     cellRefs.current[next]?.focus();
   };
@@ -88,8 +88,8 @@ export function LedEditor({ rows, color, onChange, label }: LedEditorProps) {
       onKeyDown={onKeyDown}
       style={{ '--led': color } as CSSProperties}
     >
-      {Array.from({ length: 49 }, (_, i) => {
-        const on = rows[Math.floor(i / 7)][i % 7] === '#';
+      {Array.from({ length: GRID * GRID }, (_, i) => {
+        const on = rows[Math.floor(i / GRID)][i % GRID] === '#';
         return (
           <button
             key={i}
@@ -98,7 +98,7 @@ export function LedEditor({ rows, color, onChange, label }: LedEditorProps) {
             }}
             type="button"
             className={`led-cell${on ? ' is-on' : ''}`}
-            aria-label={`Row ${Math.floor(i / 7) + 1}, dot ${(i % 7) + 1}`}
+            aria-label={`Row ${Math.floor(i / GRID) + 1}, dot ${(i % GRID) + 1}`}
             aria-pressed={on}
             tabIndex={i === focusIdx ? 0 : -1}
             // Pointer taps are handled on the grid (so drags paint); this is keyboard only.

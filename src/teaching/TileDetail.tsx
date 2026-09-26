@@ -82,6 +82,9 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
       </div>
 
       <h2 className="section-title">Poco can say</h2>
+      {tile.lines.length === 0 && (
+        <p className="section-hint">No lines yet. Tap Edit to add some, or Poco just shows the feeling.</p>
+      )}
       <ul className="say-list" style={{ '--c': tile.color } as CSSProperties}>
         {tile.lines.map((line, i) => (
           <li key={i}>

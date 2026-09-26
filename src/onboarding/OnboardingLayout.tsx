@@ -3,7 +3,8 @@ import { useApp } from '../app/AppProvider';
 import { PocoStage } from '../app/PocoStage';
 import { ChunkyButton } from '../ui/ChunkyButton';
 import { ProgressDots } from './ProgressDots';
-import { STEP_COUNT } from './stepMeta';
+import { ORANGE } from '../poco/emotions';
+import { IDLE_PATTERNS, STEP_COUNT, STEP_MOVES } from './stepMeta';
 import { Step1You } from './steps/Step1You';
 import { Step2Child } from './steps/Step2Child';
 import { Step3Support } from './steps/Step3Support';
@@ -24,7 +25,7 @@ const STEPS: ComponentType[] = [
 ];
 
 export function OnboardingLayout() {
-  const { state, resetNonce, next, back } = useApp();
+  const { state, resetNonce, next, back, play } = useApp();
   const bodyRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
 
@@ -38,6 +39,11 @@ export function OnboardingLayout() {
         : state.step === 6
           ? state.connection === 'connected'
           : true;
+
+  // Poco greets each step with a movement (the step's own line is set by the step).
+  useEffect(() => {
+    play(STEP_MOVES[state.step], ORANGE, IDLE_PATTERNS[state.step]);
+  }, [state.step, resetNonce, play]);
 
   // On step change: scroll to top and move focus to the new headline.
   useEffect(() => {

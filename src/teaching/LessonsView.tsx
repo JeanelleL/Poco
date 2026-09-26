@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { PlusIcon, type Go } from './TeachingScreen';
 import { lessonMinutes, useLessons, type Lesson } from './lessons';
 import { useTiles } from './tiles';
@@ -9,9 +10,6 @@ export function LessonsView({ go }: { go: Go }) {
 
   return (
     <>
-      <h1 className="sr-only" tabIndex={-1}>
-        Lessons
-      </h1>
 
       {/* The adult's own lessons lead once there are some; until then the presets do. */}
       {mine.length > 0 && <MyLessons mine={mine} go={go} />}
@@ -20,8 +18,8 @@ export function LessonsView({ go }: { go: Go }) {
           Ready-made lessons
         </h2>
         <div className="lesson-grid">
-          {presets.map((l) => (
-            <LessonCard key={l.id} lesson={l} onOpen={() => go({ name: 'play', id: l.id })} />
+          {presets.map((l, i) => (
+            <LessonCard key={l.id} lesson={l} index={i} onOpen={() => go({ name: 'play', id: l.id })} />
           ))}
         </div>
       </section>
@@ -37,8 +35,8 @@ function MyLessons({ mine, go }: { mine: Lesson[]; go: Go }) {
         My lessons
       </h2>
       <div className="lesson-grid">
-        {mine.map((l) => (
-          <LessonCard key={l.id} lesson={l} onOpen={() => go({ name: 'play', id: l.id })} />
+        {mine.map((l, i) => (
+          <LessonCard key={l.id} lesson={l} index={i} onOpen={() => go({ name: 'play', id: l.id })} />
         ))}
         <button type="button" className="lesson-card is-new" onClick={() => go({ name: 'build' })}>
           <PlusIcon />
@@ -52,14 +50,14 @@ function MyLessons({ mine, go }: { mine: Lesson[]; go: Go }) {
   );
 }
 
-function LessonCard({ lesson, onOpen }: { lesson: Lesson; onOpen: () => void }) {
+function LessonCard({ lesson, index, onOpen }: { lesson: Lesson; index: number; onOpen: () => void }) {
   const { byId } = useTiles();
   // One colored dot per feeling or tool the lesson uses, in order of first use.
   const colors = [
     ...new Set(lesson.steps.flatMap((s) => (s.kind === 'poco' ? [byId(s.tileId)?.color ?? 'var(--muted)'] : []))),
   ];
   return (
-    <button type="button" className="lesson-card" onClick={onOpen}>
+    <button type="button" className="lesson-card grid-in" style={{ '--i': index } as CSSProperties} onClick={onOpen}>
       <span className="lesson-tag">{lesson.preset ? 'Ready-made' : 'Yours'}</span>
       <span className="lesson-title">{lesson.title}</span>
       {lesson.goal && <span className="lesson-goal">{lesson.goal}</span>}

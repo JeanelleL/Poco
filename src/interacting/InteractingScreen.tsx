@@ -14,10 +14,10 @@ const PAST_SHOWN = 10;
 const MIN_SESSION_MS = 20000;
 
 /**
- * Poco does the watching and responding himself; this screen is his on/off
- * switch, one setting, and what he noticed: this session as feeling bars, and
+ * Poco does the watching and responding themself; this screen is their on/off
+ * switch, one setting, and what they noticed: this session as feeling bars, and
  * past sessions (saved on this iPad) with a one-line weekly trend. Leaving the
- * screen or Stop Poco pauses him, so he never keeps going unseen.
+ * screen or Stop Poco pauses them, so they never keep going unseen.
  */
 export function InteractingScreen() {
   const { state, poco, play, showBelly, mirror, saveSession } = useApp();
@@ -100,7 +100,7 @@ export function InteractingScreen() {
   const start = () => {
     const now = Date.now();
     setSession({ id: `session-${now}`, start: now, end: now, events: [] });
-    play('wave', ORANGE, 'heart', "I'm watching and listening!");
+    play('listen', ORANGE, 'heart', "I'm watching and listening!");
   };
 
   const pause = () => {
@@ -126,12 +126,12 @@ export function InteractingScreen() {
   return (
     <div ref={rootRef} className="interacting">
       <header className="screen-header">
-        <p className="eyebrow">Interacting mode</p>
+        <p className="eyebrow">Social mode</p>
         <h1 className="headline" tabIndex={-1}>
           Poco joins in
         </h1>
         <p className="helper">
-          Poco watches faces, listens to voices and responds with his own feelings, words and moves. You just switch him on.
+          Poco watches faces, listens to voices and responds with their own feelings, words and moves. You just switch them on.
         </p>
       </header>
 
@@ -175,7 +175,7 @@ export function InteractingScreen() {
             live={!!session}
           />
         ) : (
-          <p className="int-empty">Start Poco to see what he notices. Each session is saved on this iPad.</p>
+          <p className="int-empty">Start Poco to see what they notice. Each session is saved on this iPad.</p>
         )}
       </section>
 

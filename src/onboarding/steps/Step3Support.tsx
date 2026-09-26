@@ -23,7 +23,7 @@ export function Step3Support() {
       <StepHeader
         step={3}
         title={`What works for ${hasName ? child.name.trim() : 'your child'}`}
-        helper="Poco uses this in his stories, and to help when things get hard. Skip anything that doesn't apply."
+        helper="Poco uses this in their stories, and to help when things get hard. Skip anything that doesn't apply."
       />
       <div className="field rise d3">
         <label htmlFor="child-favorites" className="field-label">

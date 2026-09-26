@@ -18,7 +18,7 @@ export function FeelingBars({
 }: {
   counts: FeelingCount[];
   label: string;
-  /** While Poco is live: the feeling he just noticed, and a counter to replay its glow. */
+  /** While Poco is live: the feeling they just noticed, and a counter to replay its glow. */
   pulse?: { feeling: string; n: number };
 }) {
   const max = Math.max(1, ...counts.map((c) => c.count));
@@ -66,7 +66,7 @@ export function SessionDetail({
 }: {
   session: InteractSession;
   onFeedback?: () => void;
-  /** Poco is running: glow the bar of whatever he just noticed. */
+  /** Poco is running: glow the bar of whatever they just noticed. */
   live?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -106,7 +106,7 @@ export function SessionDetail({
                   {real === NO_ONE ? 'No one there' : shown?.label ?? ev.feeling}
                 </span>
                 <span className={`int-said${ev.said ? '' : ' is-quiet'}`}>
-                  {ev.said ? `"${ev.said}"` : 'Showed it on his belly'}
+                  {ev.said ? `"${ev.said}"` : 'Showed it on their belly'}
                   {real && <span className="int-fixed"> Poco guessed {guess?.label ?? ev.feeling}</span>}
                 </span>
               </li>

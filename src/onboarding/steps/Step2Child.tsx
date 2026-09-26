@@ -4,8 +4,8 @@ import { useApp, usePocoLine, type Age, type Communication } from '../../app/App
 import { StepHeader } from '../StepHeader';
 import { friendOrName } from '../stepMeta';
 
-const AGES: readonly Age[] = ['3–5', '6–8', '9–12', '13+'];
-const COMMUNICATION: readonly Communication[] = ['Speaking', 'Partially verbal', 'Nonverbal'];
+export const AGES: readonly Age[] = ['3–5', '6–8', '9–12', '13+'];
+export const COMMUNICATION: readonly Communication[] = ['Speaking', 'Partially verbal', 'Nonverbal'];
 
 export function Step2Child() {
   const { state, patchChild, setCurious } = useApp();

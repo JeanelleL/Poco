@@ -1,17 +1,20 @@
-// Fun Mode: dance breaks and movement games, as data. Each step is one body +
-// flipper move with a belly picture, held for `ms` (scaled by the comfort
-// speed). Timed routines loop their steps until time is up; paced ones wait
-// for the adult to tap Next.
+// Fun Mode: dance breaks and movement games, as data. Each step is one of
+// Poco's real movements (servos/gestures.py) with a belly picture and color.
+// A step lasts as long as its movement (POCO_MOVES ms, scaled by the comfort
+// speed) unless it sets ms. Timed routines loop their steps until time is up;
+// paced ones (Copy Me) wait for the adult to tap Next move.
 
 import type { Pattern, PatternKey } from '../poco/patterns';
-import type { Motion } from '../poco/pocoClient';
+import type { PocoMove } from '../poco/pocoClient';
 
 export interface FunStep {
-  motion: Motion;
+  /** null = hold still (Freeze!). */
+  move: PocoMove | null;
   pattern: Pattern;
   color: string;
   say?: string;
-  ms: number;
+  /** Override the step length (ms at normal speed). */
+  ms?: number;
 }
 
 export interface FunRoutine {
@@ -34,24 +37,22 @@ const PURPLE = '#7C5CC4';
 const BLUE = '#3B7DD8';
 const GREEN = '#3FA36B';
 
-const m = (body: Motion['body'], flippers: Motion['flippers']): Motion => ({ body, flippers });
-
-const FREEZE: FunStep = { motion: m('still', 'rest'), pattern: 'surprised', color: BLUE, say: 'Freeze!', ms: 3000 };
+const FREEZE: FunStep = { move: null, pattern: 'surprised', color: BLUE, say: 'Freeze!', ms: 3000 };
 
 export const FUN_ROUTINES: FunRoutine[] = [
   {
     id: 'shuffle',
     kind: 'dance',
-    title: 'Penguin Shuffle',
-    blurb: 'A bouncy warm-up dance.',
-    icon: 'note',
+    title: 'Dance Party!',
+    blurb: 'Lets shake, wiggle, and flap our wings!',
+    icon: 'rainbow',
     color: YELLOW,
     seconds: 60,
     steps: [
-      { motion: m('bounce', 'flap'), pattern: 'happy', color: YELLOW, say: 'Shuffle, shuffle!', ms: 2200 },
-      { motion: m('sway', 'wave'), pattern: 'note', color: ORANGE, ms: 2600 },
-      { motion: m('jump', 'up'), pattern: 'excited', color: ORANGE, say: 'Jump!', ms: 1600 },
-      { motion: m('bounce', 'rest'), pattern: 'star', color: YELLOW, ms: 2000 },
+      { move: 'happy_dance', pattern: 'happy', color: YELLOW, say: 'Shuffle, shuffle!' },
+      { move: 'flap', pattern: 'note', color: ORANGE },
+      { move: 'sway', pattern: 'star', color: ORANGE, say: 'Side to side!' },
+      { move: 'happy', pattern: 'happy', color: YELLOW },
     ],
   },
   {
@@ -59,14 +60,14 @@ export const FUN_ROUTINES: FunRoutine[] = [
     kind: 'dance',
     title: 'Silly Wiggles',
     blurb: 'Wiggle, shake and giggle.',
-    icon: 'silly',
+    icon: 'note',
     color: PINK,
     seconds: 60,
     steps: [
-      { motion: m('shake', 'flap'), pattern: 'silly', color: PINK, say: 'Wiggle, wiggle!', ms: 1800 },
-      { motion: m('tremble', 'wave'), pattern: 'sparkle', color: PURPLE, ms: 2000 },
-      { motion: m('bounce', 'flap'), pattern: 'silly', color: PINK, say: 'Shake it out!', ms: 2000 },
-      { motion: m('sway', 'up'), pattern: 'happy', color: ORANGE, ms: 2400 },
+      { move: 'flap', pattern: 'silly', color: PINK, say: 'Wiggle, wiggle!' },
+      { move: 'no', pattern: 'sparkle', color: PURPLE, say: 'Shake it out!' },
+      { move: 'curious', pattern: 'silly', color: PINK },
+      { move: 'happy_dance', pattern: 'happy', color: ORANGE },
     ],
   },
   {
@@ -78,11 +79,11 @@ export const FUN_ROUTINES: FunRoutine[] = [
     color: PURPLE,
     seconds: 90,
     steps: [
-      { motion: m('jump', 'up'), pattern: 'star', color: TEAL, say: 'Party time!', ms: 1600 },
-      { motion: m('bounce', 'flap'), pattern: 'sparkle', color: PURPLE, ms: 2000 },
-      { motion: m('sway', 'wave'), pattern: 'heart', color: PINK, ms: 2600 },
-      { motion: m('shake', 'flap'), pattern: 'note', color: GREEN, ms: 1800 },
-      { motion: m('bounce', 'up'), pattern: 'star', color: YELLOW, ms: 2000 },
+      { move: 'good_job', pattern: 'star', color: TEAL, say: 'Party time!' },
+      { move: 'flap', pattern: 'sparkle', color: PURPLE },
+      { move: 'wave_right', pattern: 'heart', color: PINK },
+      { move: 'wave_left', pattern: 'note', color: GREEN },
+      { move: 'happy_dance', pattern: 'star', color: YELLOW },
     ],
   },
   {
@@ -94,9 +95,9 @@ export const FUN_ROUTINES: FunRoutine[] = [
     color: GREEN,
     seconds: 60,
     steps: [
-      { motion: m('sway', 'rest'), pattern: 'calm', color: GREEN, say: 'Slow and gentle…', ms: 3600 },
-      { motion: m('sway', 'droop'), pattern: 'moon', color: BLUE, say: 'Breathe in…', ms: 3600 },
-      { motion: m('still', 'rest'), pattern: 'heart', color: GREEN, say: '…and out.', ms: 3600 },
+      { move: 'calm', pattern: 'calm', color: GREEN, say: 'Slow and gentle…' },
+      { move: 'breathe', pattern: 'orb', color: BLUE, say: 'Breathe in with me… and out.' },
+      { move: 'calm', pattern: 'heart', color: GREEN, say: 'Nice and calm.' },
     ],
   },
   {
@@ -108,14 +109,12 @@ export const FUN_ROUTINES: FunRoutine[] = [
     color: BLUE,
     seconds: 90,
     steps: [
-      { motion: m('bounce', 'flap'), pattern: 'happy', color: YELLOW, say: 'Dance!', ms: 2200 },
-      { motion: m('sway', 'wave'), pattern: 'note', color: ORANGE, ms: 2600 },
+      { move: 'happy_dance', pattern: 'happy', color: YELLOW, say: 'Dance!' },
       FREEZE,
-      { motion: m('jump', 'up'), pattern: 'excited', color: PINK, say: 'Dance!', ms: 1600 },
-      { motion: m('shake', 'flap'), pattern: 'silly', color: PINK, ms: 1800 },
-      { motion: m('bounce', 'rest'), pattern: 'star', color: TEAL, ms: 2000 },
+      { move: 'flap', pattern: 'excited', color: PINK, say: 'Dance!' },
+      { move: 'sway', pattern: 'silly', color: PINK },
       FREEZE,
-      { motion: m('bounce', 'flap'), pattern: 'happy', color: YELLOW, say: 'Dance!', ms: 2200 },
+      { move: 'good_job', pattern: 'star', color: TEAL, say: 'Dance!' },
       FREEZE,
     ],
   },
@@ -127,12 +126,13 @@ export const FUN_ROUTINES: FunRoutine[] = [
     icon: 'hand',
     color: TEAL,
     steps: [
-      { motion: m('bounce', 'flap'), pattern: 'happy', color: YELLOW, say: 'Copy me! Bounce and flap!', ms: 0 },
-      { motion: m('still', 'up'), pattern: 'star', color: TEAL, say: 'Copy me! Arms up high!', ms: 0 },
-      { motion: m('sway', 'wave'), pattern: 'hi', color: ORANGE, say: 'Copy me! Sway and wave!', ms: 0 },
-      { motion: m('tremble', 'cover'), pattern: 'scared', color: PURPLE, say: 'Copy me! Cover your eyes!', ms: 0 },
-      { motion: m('jump', 'rest'), pattern: 'excited', color: PINK, say: 'Copy me! Big jump!', ms: 0 },
-      { motion: m('slump', 'droop'), pattern: 'tired', color: BLUE, say: 'Copy me! Floppy like a noodle!', ms: 0 },
+      { move: 'flap', pattern: 'happy', color: YELLOW, say: 'Copy me! Flap your wings!' },
+      { move: 'wave_right', pattern: 'hi', color: ORANGE, say: 'Copy me! Wave hello!' },
+      { move: 'yes', pattern: 'star', color: TEAL, say: 'Copy me! Nod your head!' },
+      { move: 'no', pattern: 'worried', color: PURPLE, say: 'Copy me! Shake your head!' },
+      { move: 'curious', pattern: 'surprised', color: PINK, say: 'Copy me! Tilt your head!' },
+      { move: 'sway', pattern: 'calm', color: GREEN, say: 'Copy me! Sway side to side!' },
+      { move: 'surprised', pattern: 'excited', color: BLUE, say: 'Copy me! Arms up high!' },
     ],
   },
 ];

@@ -31,7 +31,7 @@
 .idle .bodyg{animation:breathe 3.6s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.015,.985)}}
 
-/* Body moves (b-*) and flipper moves (f-*) combine freely; named gestures are pairs (GESTURE_MOTION). */
+/* On-screen approximation of Poco's movements: body (b-*) and flipper (f-*) animations, paired per movement in pocoClient.ts. */
 .b-bounce .bodyg{animation:hop calc(.5s * var(--spd)) ease-in-out 3}
 .b-slump .bodyg{animation:slump calc(1.2s * var(--spd)) ease-out forwards}
 .b-shake .bodyg{animation:shake calc(.1s * var(--spd)) linear 10 alternate}
@@ -71,6 +71,12 @@
 /* LED scan: dots switch on row by row (LedMatrix scan prop) */
 .led-scan .led-dot{animation:led-in .28s ease-out both;animation-delay:calc(var(--r) * 45ms)}
 @keyframes led-in{from{opacity:0;transform:scale(.4)}}
+
+/* Grid "power on": items appear in a quick wave (--i = position), and any LED
+   scan inside waits for its own item, so each tile lights up row by row in turn. */
+.grid-in{animation:grid-in .45s cubic-bezier(.2,.9,.25,1.1) backwards;animation-delay:calc(var(--i, 0) * 28ms)}
+@keyframes grid-in{from{opacity:0;transform:translateY(10px) scale(.96)}}
+.grid-in .led-scan .led-dot{animation-delay:calc(var(--i, 0) * 28ms + 120ms + var(--r) * 40ms)}
 
 /* One-off "sent to Poco" glow in the element's --c color */
 .flash{animation:flash .7s ease-out}
