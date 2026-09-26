@@ -1,216 +1,455 @@
 # Poco
 
-Handoff notes for whoever works on this next (human or agent). Read this whole file before changing code.
+Handoff notes for whoever works on this next (human or agent). Read this whole
+file before changing code.
+
+> **This replaces the previous README.** That version described the laptop
+> server as "not built yet" and had the data flow backwards. Both are fixed
+> here. Sections 6, 7, 11 and 12 are this repo's own documentation, kept close
+> to the original because they are accurate about the app's code.
+>
+> Everything now lives in this one repo: the app, the laptop server, and the
+> servo and LED drivers.
 
 ## 1. What Poco is
 
-**Poco** is a plush robot penguin that helps **autistic children learn to read, name and regulate emotions**. Their belly has an 8×8 LED matrix (NeoPixel, see `led_matrix/`) that shows pictures and emotion colors; they have 11 motors (head, flippers, legs) and talk with a speaker and camera. Poco uses **they/them**: keep all app text and Poco's lines gender-neutral.
+**Poco** is a plush robot penguin that helps **autistic children learn to read,
+name and regulate emotions**. His belly is an 8x8 NeoPixel matrix showing faces
+and emotion colours; he has 11 servos and a speaker, and a camera and
+microphone in his head.
 
-The system has three parts:
+**The direction matters, and it is the thing most easily got wrong:**
+
+> Poco's camera and microphone point at **the friend** — the person the child is
+> talking to. Everything Poco does comes out at **the child**.
+
+Poco watches the other person's face, listens to what they say, works out how
+they are feeling, and quietly tells the child what they might do about it — "You
+could ask what part of chemistry is worrying him most." He is a coach for the
+child, whispering about someone else. He never addresses the friend and never
+narrates them aloud to the room.
+
+This is why the project exists: reading the other person is the hard part, and
+Poco does it alongside the child rather than at them.
 
 ```
- iPad (web app, this repo)        Laptop (not built yet)             Poco
+ iPad (web app)                   This laptop                        Poco
  ┌──────────────────────┐  Wi-Fi  ┌───────────────────────────┐ USB  ┌─────────────┐
  │ Adult sets up and    │────────▶│ Python server             │─────▶│ Arduino Uno │
- │ controls Poco        │WebSocket│ serves app, JSON → serial │serial│ motors, LEDs│
- └──────────────────────┘         │ TTS, later camera/emotion │      └─────────────┘
+ │ controls Poco        │WebSocket│ camera, mic, emotion, LLM │serial│ motors, LEDs│
+ └──────────────────────┘  :8765  │ voice, JSON → serial      │      └─────────────┘
                                   └───────────────────────────┘
+                                        ▲            │
+                                   the friend    the child
+                                   (camera+mic)  (voice+LEDs)
 ```
 
-- The **iPad app** is used by a teacher, therapist or parent (never the child directly). Landscape only.
-- The **laptop** runs a Python server (camera, emotion detection, TTS, serial to the Arduino). It is **not built yet**.
-- The **Arduino Uno** is physically plugged into the laptop by USB and drives the motors and belly LEDs.
-
-**This repo is the iPad app: the onboarding flow plus the main app with Teaching, Social and Fun modes.** The Python server comes later. The robot is **mocked** behind `src/poco/pocoClient.ts`. The iPad is the adult's **remote control** for the physical Poco: after onboarding there is no on-screen penguin, because the adult is watching the real one.
-
-Guiding rule for anything we ask the adult: **only ask for something if it changes what Poco does**, and it stays on the iPad (privacy answer for judges). We deliberately don't collect diagnosis, medical info, photos, birthday or last name.
+- **`src/`** is the iPad app — the adult's remote control, for a teacher,
+  therapist or parent, never the child directly. Landscape only. `ios/` wraps
+  it as an installed app.
+- **`server/`** is the laptop: perception, judgement and voice.
+- **`servos/`** and **`led_matrix/`** drive the robot over USB.
+- The **Arduino Uno** plugs into the laptop by USB and drives motors and LEDs.
 
 ## 2. Status
 
-- All 7 onboarding steps work end to end. `npm run build` (tsc + vite) passes with no errors.
-- After onboarding: mode tabs (Teaching / Social / Fun), profile chip (settings placeholder with "Start setup again"), now-playing bar with Stop. Teaching Mode is complete (tiles, tile editor, lessons, lesson player, lesson builder). Checked in headless Edge at 1180×820 and 1024×768.
-- Verified with headless Edge + Playwright screenshots at 1180×820 (iPad Air, the design target), 1024×768 and 1366×1024: no horizontal scroll, resume after reload works.
-- **Not yet tested on a real iPad.** Next practical step: serve it from the laptop and open it on the iPad (section 8).
+**Server** — the perception and response pipeline runs end to end:
+camera → face → emotion, microphone → transcript, both fused on one timeline →
+Claude → spoken reply in Poco's voice. Measured at 30 fps sustained with
+everything running. **Not yet connected to the iPad or the Arduino** — sections
+4 and 8.
+
+**iPad app** — all 7 onboarding steps work; Teaching, Fun and Social tabs, the
+8x8 feeling faces, real servo moves and mix-your-own steps.
+`npm run build` passes. Verified in headless Edge at 1180x820, 1024x768 and
+1366x1024. Not yet tested on a real iPad.
+
+**Hardware** — `servos/` drives Poco's 11 servos through an Arduino, with
+keyframed gestures and a pose editor; `led_matrix/` drives the 8x8 NeoPixel
+belly. Both have firmware sketches and both are real, working Python. Not yet
+driven by the server. The C270 webcam is away being mounted.
+
+**Runs on macOS (Apple Silicon).** The camera path uses OpenCV's AVFoundation
+backend; a move to Windows or a Pi means replacing that backend and redoing
+device selection (section 9).
 
 ## 3. Run
 
-Requires Node 18+. **Node is not currently installed on the user's Windows laptop** (a portable copy was used temporarily for builds). Install with `winget install OpenJS.NodeJS.LTS`.
+### The laptop server
+
+Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). Models download on
+first use — roughly 160 MB for the defaults (YuNet 228 KB in `models/`,
+HSEmotion 15 MB in `~/.hsemotion`, Whisper `base.en` ~145 MB in the Hugging Face
+cache). Trying other Whisper sizes adds a few hundred MB each.
+
+```sh
+cd server
+uv sync
+uv run social_demo.py                 # the whole thing: watch, listen, think, speak
+uv run social_demo.py --no-llm        # perception only, no API calls, no spend
+uv run social_demo.py --no-voice      # think but stay silent
+uv run social_demo.py --memory        # remember the friend between sessions (section 10)
+```
+
+Individual pieces, useful when one of them is misbehaving:
+
+```sh
+uv run emotion_demo.py --list-cameras # snapshot every camera to identify them
+uv run emotion_demo.py                # face + emotion only, with live tuning keys
+uv run speech_demo.py                 # microphone + transcription only
+uv run tune_sweep.py session.mp4      # sweep detection thresholds (section 5)
+```
+
+Keys live in `server/.env` (gitignored, mode 600): `ANTHROPIC_API_KEY`,
+`ELEVENLABS_API_KEY`, `BACKBOARD_API_KEY`.
+
+### The iPad app
 
 ```sh
 npm install
-npm run dev        # vite --host: also reachable from the iPad on the same Wi-Fi (use the "Network" URL)
+npm run dev        # vite --host, so the iPad can reach it on the same Wi-Fi
 npm run build      # typecheck + production build
-npm run typecheck
+npx cap open ios   # the installed-app build (needs Xcode)
 ```
 
-Demo helpers:
-- **Reset everything:** long-press the "Poco" wordmark (top left) for 2 s.
-- **Gesture test panel:** add `?dev` to the URL.
-- Everything the mock robot would send is logged with `console.debug('[poco] …')`.
+### The robot
 
-## 4. Tech stack and conventions
+```sh
+cd servos     && python play.py happy      # one gesture
+cd led_matrix && python modes.py           # belly faces
+```
 
-- Vite + React 18 + TypeScript (strict, `noUnusedLocals`). No UI kit, no Tailwind, no animation library.
-- Plain CSS: global `src/styles/{tokens,base,motion}.css` plus one CSS file per area. **Global styles are imported first in `main.tsx`** so component CSS can override them (order matters, e.g. `.emo-tile` overrides `.tile`'s transition).
-- State: one `AppProvider` (`src/app/`, context + `useReducer`, hook `useApp()`), persisted to `localStorage` key **`poco.onboarding.v2`** (bumped from v1 when step 2 was split; new fields are added with defaults in `load()` instead of bumping). Everything is saved except `connection`.
-- Match the surrounding code: small components, CSS class names like `.field`, `.pill`, `.btn-primary`, comments only where the "why" isn't obvious.
+## 4. The contract with the iPad app
 
-## 5. File map
+The app talks to Poco through one interface, `src/poco/pocoClient.ts`. **That
+file is the source of truth for every id string**, and the server mirrors it in
+`poco/bridge/events.py`. Feelings, gestures and colours are the
+app's, not ours — the same strings travel from the classifier to the LEDs.
+
+```python
+PocoEvent  {"type": "noticed", "feeling": "worried", "said": "...",
+            "why": "He named a specific worry; a follow-up keeps him talking.",
+            "at": 1790462436498}
+PocoAction {"move": "listen", "belly": {"color": "#A177FF", "brightness": 1.0},
+            "say": "..."}
+```
+
+- **Feelings** — the app knows twelve; the camera can tell six apart:
+  `happy sad angry surprised worried neutral`. The rest (calm, excited, tired,
+  silly, shy, frustrated) are teaching tiles the adult triggers. `calm` in
+  particular is a judgement about someone, not an expression, and looks
+  identical to `neutral` to a classifier.
+  There is no *disgusted*: the model cannot separate disgust from anger (a
+  disgusted face scored Anger 56% / Disgust 10%), so Poco would be teaching a
+  name it cannot reliably attach to a face. Dropping it is deliberate.
+- **Moves** — 23 named movements (`POCO_MOVES`), each a real keyframed gesture
+  in `servos/gestures.py` that starts and ends at home. The server offers Claude
+  all but `breathe`, which runs 36 seconds and is a regulation exercise the
+  adult chooses, not a reaction to someone looking tense. Durations are shown
+  to the model so a nine-second sway is chosen knowingly.
+- **`PocoEvent.feeling` is the friend's expression.** The app's session history
+  therefore records how well Poco read the friend, which is worth keeping — see
+  section 5.
+- The **8x8 faces** exist twice already — `src/poco/patterns.ts` and
+  `led_matrix/emotions.py` — and are deliberately **not** copied a third time
+  into `server/`. Three hand-maintained sets of the same grids will drift until
+  Poco shows a face the app never drew. `belly_for()` returns colour and
+  brightness only; the robot driver should read `led_matrix/emotions.py`.
+
+## 5. How the server works
 
 ```
-src/
-  main.tsx, App.tsx
-  styles/   tokens.css (colors/fonts), base.css (reset, focus ring, .sr-only), motion.css (all keyframes + gesture classes)
-  app/
-    AppProvider.tsx    all state, reducer, persistence, play()/say()/showBelly()/resetPoco()/stop(), usePocoLine(), idlePattern()
-    AppShell.tsx       after onboarding: wordmark + mode tabs + profile chip, screen body, now-playing bar (belly, last line, connection, Stop)
-    WakeUpIntro.tsx    once after setup (state.introPending): full-screen LED panel lights from the center, holds a heart, scatters away; tap skips
-    PocoStage.tsx      onboarding's left stage (bubble + penguin), Wordmark (long-press reset), ?dev panel
-    layout.css, shell.css
-  poco/
-    PocoCharacter.tsx  SVG penguin + belly LedMatrix + gesture classes (retrigger logic)
-    LedMatrix.tsx      read-only 8x8 dot grid (scan prop = light up row by row)
-    LedEditor.tsx      drawable 8x8 grid (tap to toggle, drag to paint, arrow keys + Space)
-    patterns.ts        all 8x8 patterns as data (feelings from led_matrix/emotions.py, solid, calm tools, icons); patternRows pads old 7x7
-    emotions.ts        the 12 feelings (emotions.py's faces minus Scared, plus Calm, Shy, Frustrated; 6 core), screen colors, CustomEmotion (= a custom tile), ORANGE
-    SpeechBubble.tsx   typewriter bubble (28 ms/char), aria-live copy for screen readers
-    pocoClient.ts      PocoClient interface + MockPocoClient (the only place that knows how Poco is reached)
-    useReducedMotion.ts
-  teaching/
-    tiles.ts           ALL tile wording: 6 core + 6 more feelings + 4 calm-down tools, line templates, buildTiles(), useTiles()
-    lessons.ts         Lesson/LessonStep types, 6 ready-made lessons (templates), useLessons()
-    TeachingScreen.tsx view switch (feelings / tile / editTile / lessons / play / build) + shared bits
-    TileEditor         one scroll: Name, Color, Belly lights (drawn), Movement, What Poco says (optional, Suggest some lines); sticky preview
-    MotionPicker       MoveControls (Ready-made: Feelings + Moments; Mix your own: up to 5 steps, each any mix of head / each flipper / feet commands) and TilePreview
-    FeelingsView, TileDetail, LessonsView, LessonPlayer, LessonBuilder, teaching.css
-  fun/
-    funRoutines.ts     4 dance breaks + 2 games as data (steps = body + flipper move, belly picture, color, line, ms)
-    FunScreen.tsx      tap a card to start; now-playing card with progress + Stop (Copy Me: Next move); fun.css
-  interacting/
-    InteractingScreen.tsx  Social tab: Start/Pause switch, this/last session, past sessions
-    SessionSummary.tsx     FeelingBars (one bar per feeling, in its belly color, labeled) + "Show every moment" list + Give feedback
-    FeedbackForm.tsx       optional review: How did it go? (Tough/OK/Great), notes, fix moments Poco got wrong
-    sessionStats.ts        countFeelings, minutesLabel, dayLabel, weeklyTrend (last 7 days vs the 7 before); interacting.css
-  ui/ConfirmButton.tsx     tap-twice destructive button (Delete, Reset, Clear history)
-  settings/SettingsScreen.tsx  one scrolling form: child, what works, Poco comfort + connection, you, Social history, Start setup again (edits save as you go)
-  onboarding/
-    OnboardingLayout.tsx    PocoStage + right panel, progress, footer
-    ProgressDots.tsx, StepHeader.tsx
-    stepMeta.ts             STEP_COUNT=7, STEP_LABELS, IDLE_PATTERNS, SPEED_MULTIPLIER, name fallbacks
-    childProfile.ts         pronouns helpers, splitList, firstFavorite, calmingPhrase
-    steps/Step1You … Step7Hello.tsx, steps.css
-  ui/ ChunkyButton, PillGroup (single-select), Toggle (role=switch), Slider, ui.css
+camera ──> EmotionDetector ──> emotion track ──┐
+                                               ├─> SocialContext ─> Coach ─> Voice
+mic ─────> SpeechListener ──> Utterance ───────┘        │            (Claude)  (11labs)
+                                                        └─> Memory (optional)
 ```
+
+**`poco/vision/emotion.py`** — YuNet finds the largest face, HSEmotion scores it,
+scores are smoothed, and an emotion is only announced once it has led for
+`hold_seconds`. Defaults (`min_confidence` 0.40, `hold_seconds` 1.6, `smoothing`
+0.15) were not guessed: they came from sweeping 300 combinations against a
+labelled recording. `min_margin` additionally requires the winner to beat the
+runner-up, because a 42%/35% split is a coin toss and silence beats a confident
+wrong label.
+
+**`poco/audio/speech.py`** — captures at 16 kHz and uses Silero VAD to find where
+utterances start and stop, then Whisper (`base.en`) to transcribe. Endpointing is
+Silero's rather than an energy threshold: a threshold has to be calibrated
+against a room's noise floor, and a floor estimated during one quiet moment stays
+latched on for good. Measured 3% word error rate on speech aimed at the mic;
+ambient chatter across a room is far worse.
+
+**`poco/social/context.py`** — fuses the two. `EmotionEvent` is no use here
+because it only fires when the stable emotion *changes*, so a whole sentence can
+pass without one. Instead every frame's reading goes into a 60-second track, and
+when an utterance lands its time window is queried. Both pipelines stamp with
+`time.monotonic()`, so they line up for free. Each `Turn` renders as one line —
+`(looked calm, then sad) "I'm really stressed about the chemistry one"` — and
+comparing the first third of a sentence against the last catches "started fine,
+ended upset", which matters more to a coach than either half alone.
+
+**`poco/social/coach.py`** — sends that to Claude (`claude-opus-5`) and gets back
+a schema-validated `Suggestion(say, gesture, belly, reason, remember)`. **Silence
+is the default**: the system prompt makes `say: null` the right answer whenever
+the conversation is fine, nothing has changed, or the model is unsure. The child
+is already managing a live conversation and an interruption costs them their
+place in it. The prompt also says to treat the face reading as a weak hint and
+trust the words when they disagree — which is what produced *"'It's fine' twice.
+You could just say: I'm here if you want to talk."*
+
+**`poco/voice/speaker.py`** — ElevenLabs `eleven_v3`, style 1.0, stability 0.5.
+It also **deafens the microphone while Poco talks**. This is not optional: Poco
+speaks into the room his own mic is listening to, and without the guard Whisper
+transcribes him, `SocialContext` files it as something the friend said, and Poco
+advises the child about a sentence he made up himself. Demonstrated — without the
+guard the transcript came back verbatim; with it, nothing.
+
+**Tuning.** `emotion_demo.py --record --guide` walks someone through each
+expression and writes a labelled recording; `tune_sweep.py` decodes it once and
+scores hundreds of threshold combinations against the cached probabilities.
+Better still, **the app already collects the right data**: `accuracy()` in the
+app's Interacting Mode gives "Poco was right X of Y" from adult corrections keyed
+by event time. That is real ground truth from real sessions. Wiring it into
+`tune_sweep.py` is the best calibration work available and nobody has done it.
 
 ## 6. The onboarding flow (7 steps)
 
-Progress labels: You · Child · Support · Comfort · Explore · Connect · Hello. Each step has a Doto eyebrow "STEP N OF 7", a Sniglet headline, a Lexend helper line, and Poco says a line in the bubble.
+Progress labels: You · Child · Support · Comfort · Explore · Connect · Hello.
+Each step has a Doto eyebrow "STEP N OF 7", a Sniglet headline, a Lexend helper
+line, and Poco says a line in the bubble.
 
 | # | File | Asks / does | Continue enabled when |
 |---|---|---|---|
 | 1 | Step1You | Adult's name, role pills (Teacher/Therapist/Parent) | name non-empty |
-| 2 | Step2Child | Child's first name, pronouns (he/him, she/her, they/them), age, how they communicate | name non-empty |
-| 3 | Step3Support | "What works for {name}": text boxes for **Favorite things**, **What helps them calm down**, optional notes | always |
-| 4 | Step4Comfort | Volume + belly brightness sliders (brightness is live on Poco), movement speed (live), sound-effects and talk-aloud toggles | always |
-| 5 | Step5TryPoco | "Get to know Poco": tabs **Feelings** (tap a tile, Poco acts it out), **Make your own** (name + color + draw its face), **Modes** (pick starting mode) | always |
-| 6 | Step6Connect | Connect button → mock connects in 1.6 s, Poco waves; "Skip for now" jumps to step 7 | connected |
-| 7 | Step7Hello | 5-line intro script played with synced highlighting (3.8 s/line); Start / Play again / Start using Poco (enters the app on the chosen start mode) | no Continue |
+| 2 | Step2Child | Child's first name, pronouns, age, how they communicate | name non-empty |
+| 3 | Step3Support | "What works for {name}": favourite things, what calms them, notes | always |
+| 4 | Step4Comfort | Volume, belly brightness, movement speed, sound/talk toggles | always |
+| 5 | Step5TryPoco | Feelings / Make your own / Modes | always |
+| 6 | Step6Connect | Connect → mock connects in 1.6 s, Poco waves; Skip jumps to 7 | connected |
+| 7 | Step7Hello | 5-line intro with synced highlighting; Start using Poco | no Continue |
 
-How the answers change Poco (this is the point of the questions):
-- **Pronouns** → Poco's lines ("I want to know all about her!") and the talk-aloud example ("Maya looks happy, doesn't she?").
-- **Favorite things** (first item) → Poco reacts on blur ("Ooh, I like trains too!") and script line 3 becomes "When I think about trains, I feel happy…".
-- **Calming** (first item) → mapped to a phrase (`calmingPhrase`: "deep breaths" → "take deep breaths", unknown → "try …"). Tapping Sad/Angry makes Poco model it ("This is me feeling angry. I take deep breaths to feel better.") and script line 4 uses it. This is the "regulate emotions" half of the pitch.
-- **Communication** Partially verbal / Nonverbal → script line 5 becomes "You can point or tap to answer me. Ready to play?"
-- **Custom feelings** store their drawn `pattern` (7 strings of 7 chars) and show it on their tile and on Poco's belly.
+How the answers change Poco — this is the point of asking:
 
-Missing names fall back to "your child" in adult text and "friend" in Poco's lines (`stepMeta.ts`).
+- **Pronouns** → Poco's lines and the talk-aloud example.
+- **Favourite things** (first item) → Poco reacts on blur, and script line 3
+  becomes "When I think about trains, I feel happy…".
+- **Calming** (first item) → `calmingPhrase` ("deep breaths" → "take deep
+  breaths"). Tapping Sad/Angry/Scared makes Poco model it. This is the "regulate
+  emotions" half of the pitch.
+- **Communication** Partially verbal / Nonverbal → script line 5 becomes "You can
+  point or tap to answer me."
+- **Custom feelings** store their drawn pattern and show it on Poco's belly.
 
-## 7. How Poco is driven (key mechanisms)
+Missing names fall back to "your child" in adult text and "friend" in Poco's
+lines (`stepMeta.ts`). Guiding rule: **only ask for something if it changes what
+Poco does.** No diagnosis, medical info, photos, birthday or last name.
 
-- `play(gesture, color, pattern, say?)` — the single "perform" action: sets the gesture class, belly pattern/color, optional speech line, and calls `pocoClient.perform(...)`. Belly and line persist until the next play, a tab change or a step change (step change resets Poco to idle).
-- `showBelly(pattern, color)` — belly only, no gesture (used to mirror the drawing live in Make your own).
-- `resetPoco(line?)` — back to the step's idle belly (`IDLE_PATTERNS`).
-- `usePocoLine(line)` — step components set their default bubble line with this (layout effect, so no flash). Pass `null` to leave the line alone.
-- **Gesture retrigger:** `PocoCharacter` drops the class and re-adds it ~30 ms later (keyed on `playId`) so the same CSS animation can replay.
-- `--spd` CSS var = movement speed (Gentle 1.6, Normal 1, Lively 0.7); all gesture durations multiply by it.
-- `Pattern = PatternKey | readonly string[]` — named patterns or hand-drawn rows work everywhere (belly, tiles, robot).
-- `pocoClient.applySettings(comfort)` is called whenever comfort settings change while connected.
+## 7. The three modes
 
-The robot interface (`pocoClient.ts`) — keep the UI unaware of transport:
-```ts
-interface PocoClient {
-  connect(): Promise<void>; disconnect(): void; isConnected(): boolean;
-  applySettings(s: PocoSettings): void;   // volume, brightness 0..100, speed, soundEffects, speakAloud
-  perform(a: { move?: PocoMove; mix?: MoveMix; belly?: { pattern: string[]; color: string; brightness: number }; say?: string }): void;
-  stop(): void;
-  setInteracting(on: boolean): void;   // Poco decides when to talk (the robot filters its own chatter)
-  onEvent(listener: (e: PocoEvent) => void): () => void;   // PocoEvent = { type: 'noticed', feeling, said?, why?, at }
-}
-// PocoMove = the 23 gestures in servos/gestures.py (POCO_MOVES, with lengths). Feelings without their own
-// movement (angry, neutral, excited, silly) use the closest. On screen, poco/moves.css animates each one
-// (m-<name> classes; the face moves inside the head for nods, shakes and looking).
-//
-// Mix your own (custom tiles): perform({ mix: { steps: [ { head?, leftArm?, rightArm?, feet?, times? }, ... ] } })
-// 1-5 steps played in order. Within a step, every part given does its command at the same time; a part
-// left out holds still (an empty step = hold still). times (1-3, default 1) repeats the step.
-// Each command lasts about 2 s at normal speed and starts and ends at rest (like gestures.py).
-//   head:              nod | shake | tilt | look_up | look_down | look_left | look_right
-//                      (head_pitch, head_turret, head_roll)
-//   leftArm, rightArm: up | down | wave | flap | out | bend
-//                      (arm_pitch for up/down/wave/flap, arm_roll for out, arm_elbow for bend)
-//   feet:              lift_left | lift_right | up_down | alternate
-//                      (left_leg, right_leg: left_foot_up / right_foot_up; up_down = both feet up and down
-//                      twice; alternate = one foot then the other, like sway)
-// Everything is in Poco's OWN left/right, like servo_limits.py: look_right = they turn to their right.
-// The UI labels things as you face them, so its 'Left flipper' row sets rightArm, 'Look left' sends
-// look_right and 'Lift left foot' sends lift_right.
-// Tiles saved by earlier builds ({ head, leftArm, rightArm, feet } with 'still') are turned into one step
-// by upgradeMix() before they're sent.
+**Interacting Mode** is where the server does its work. The app only switches it
+on and off: `pocoClient.setInteracting(true|false)`, and `onEvent` delivers
+`{type:'noticed', feeling, said?}` events for the feed. Poco decides when to
+speak; there is no talkativeness setting, because the robot filters its own
+chatter.
+
+> **The app's mock is wrong and needs updating.** `MOCK_SAYS` in `pocoClient.ts`
+> has Poco saying "You look happy!" — Poco addressing the child about the child.
+> It is the other way round: the feeling is the *friend's*, and Poco's line is
+> advice to the child. The mock should read more like "Your friend looks happy —
+> you could ask what's going on."
+
+**Interacting history.** Each Start → Pause is an `InteractSession` in
+`state.sessions` (newest first, max 60 × 300 events; taps under 20 s with nothing
+noticed are dropped). Saved on every event, so a reload loses nothing. Only
+feeling ids, what Poco said and times are stored. Review is optional: each ended
+session has a Give feedback button (rating, note, corrections keyed by event
+time). `effectiveEvents()` applies corrections; `accuracy()` gives "Poco was
+right X of Y" — see section 5, this is the calibration data.
+
+**Teaching Mode.** Tiles are presets (`teaching/tiles.ts`) plus the adult's own.
+Editing a preset saves a custom copy with `replaces: <presetId>` taking the
+preset's slot; deleting is "Reset to original". Lessons are presets plus
+`lessons` in state; steps are Poco steps (tile + line) or teacher cues. The
+player never advances on a timer. Lesson steps reference tiles by id, so edits
+are picked up automatically.
+
+**Fun Mode.** Timed routines loop their steps until `seconds` is up. Copy Me is
+paced by the adult's Next move. Stop Poco bumps `poco.stopId`; FunScreen watches
+it — use the same signal for anything else on timers.
+
+## 8. Next steps
+
+**A. Connect the server to the app (do next).** Add `server/` here: a
+`websockets` server on `:8765` that also serves the app's built files, so the
+iPad connects back to the host it loaded from and nobody types an IP. Hosting the
+app online does not work — an HTTPS page cannot talk to `ws://` on the LAN.
+`WsPocoClient` replaces `MockPocoClient` in the app, sending the same objects as
+JSON. `poco/bridge/events.py` already emits both shapes.
+
+**B. Drive the robot from the server.** `servos/` and `led_matrix/` already do
+the hard part — keyframed gestures, pose calibration, the NeoPixel driver and
+both firmware sketches. What is missing is the glue: a driver in `server/` that
+takes a `PocoAction` and calls `Poco.play(move)` and `LedMatrix.draw(face)`.
+`poco/bridge/events.py` already emits the action; `move_seconds()` says how long
+each gesture occupies the robot, so nothing is sent on top of a running one.
+The earlier hand-rolled serial protocol below is superseded by those modules:
+
+```
+G bounce flap 1.6                 body, flippers, speed multiplier
+B <49 bits as hex> E8833A 40      belly pattern, colour, brightness
+S 20 40 0                         volume, brightness, speed
+PING → PONG 10 49                 handshake: 10 motors, 49 LEDs
 ```
 
-## 8. Next steps and plans
+Gesture keyframes live on the Arduino. Open questions: motor type (servos?), LED
+type (NeoPixel/WS2812 or a matrix module), and whether speech comes from the
+laptop or a speaker inside Poco. The sketch does not exist yet.
 
-**A. Get it on the iPad (agreed, do next).** No Xcode needed (the laptop is Windows anyway). Install Node, `npm run dev`, open the Network URL in Safari on the iPad (same Wi-Fi), optionally Share → Add to Home Screen for full-screen. Gotchas: allow the Windows firewall prompt; school/venue Wi-Fi often blocks device-to-device traffic, so use the laptop's hotspot; the Home Screen app has its own localStorage.
+**C. The Connect step should become honest** — two stages, laptop found → Poco
+answered, instead of one mock spinner.
 
-**B. Real robot (discussed, not started — confirm details with the user first).** Proposed design:
-- Python server on the laptop (`server/`, `websockets` + `pyserial`) that also **serves the built app**, so the iPad connects back to the host it loaded from (no IP entry). Hosting the app online is a bad idea: an HTTPS page can't talk to `ws://` on the LAN.
-- `WsPocoClient` replaces `MockPocoClient`, sending the same objects as JSON to `ws://<laptop>:8765`.
-- Server → Arduino as short text lines (the Uno can't parse JSON): `G happy 1.6` (one of the robot's 8 movements + speed; see `POCO_MOVES`), belly frames go out with the `F` command in `led_matrix/` (64 × RGB; the app sends 8 rows of 8 plus a screen color, which the server turns into LED values with gamma 2.2, the reverse of the conversion in `emotions.ts`), `S 20 40 0` (settings). Gesture keyframes live on the Arduino.
-- The Connect step should become honest two-stage status: laptop found → Poco answered.
-- Open questions for the user: does an Arduino sketch exist already; motor type (servos?) and LED type (NeoPixel/WS2812 or a matrix module); speech from laptop speakers or a speaker in Poco; Python must be installed (it isn't yet).
+**D. Recalibrate when the C270 is mounted.** The current thresholds were tuned
+against a desk position that no longer exists, and camera angle matters more than
+any of them: the same face at a bad angle read 17% calm, and at a good one 43%.
+Two minutes of work, section 5.
 
-**C. Later:** the real laptop/robot side of Social Mode.
+## 9. Gotchas
 
-**Social Mode, what it's for.** (The tab says "Social"; in code it's still `Interacting` / `setInteracting` / `InteractSession`, so older saves keep working.) Social Mode helps the child during a real interaction with **another person** (a classmate, sibling, parent or teacher). Poco is placed **facing that other person, not the child**: the camera reads the other person's face and voice, and Poco helps guide the child through the moment. Poco shows the other person's feeling on their belly and can say what they notice (e.g. "Your friend looks happy!"), so the child learns to read someone else's feelings in the moment instead of being the one who is watched. Everything Poco "noticed" in a session is the other person's feeling, not the child's.
+**Server**
 
-**Social Mode, how it works.** Poco does the watching and guiding themself; the app only switches it on and off. `pocoClient.setInteracting(true | false)` tells the robot, and `pocoClient.onEvent` delivers `{ type: 'noticed', feeling, said?, why? }` events (`feeling` = the other person's, `why` = Poco's reason for speaking up or staying quiet), shown in the log and mirrored in the "Poco says" bar via `mirror()` (nothing is sent back). The mock invents an event every 5–9 s, speaks about half the time, and always gives a reason. Leaving the screen or Stop Poco pauses them, so they never run unseen. There is no talkativeness setting in the app: the robot filters its own chatter.
+- **Camera indices shift when USB devices come and go.** Unplugging the C270
+  moved the MacBook's camera from index 1 to 0 and its microphone from 2 to 1.
+  Microphones are matched by name and survive this; cameras cannot be, because
+  OpenCV has no way to ask a camera its name. Both are pinned in
+  `poco/devices.py` — re-check with `--list-cameras` after any hardware change.
+- **macOS only.** `cv2.CAP_AVFOUNDATION` is hardcoded in the demos.
+- **The first frames off any webcam are black** while auto-exposure ramps. Every
+  capture path warms up for 2.5 s first; a snapshot without that is useless for
+  identifying a camera.
+- **`opencv-python` and `av` ship different ffmpeg builds** and macOS prints a
+  duplicate-class warning about "spurious casting failures and mysterious
+  crashes". Nothing has crashed across many runs, and Whisper is fed numpy arrays
+  rather than files, so `av` is barely exercised. Left alone deliberately — worth
+  knowing if something strange happens.
+- **Backboard's search score is a distance, not a similarity.** Lower is closer.
+  Results come back nearest-first so ordering is fine, but `score > 0.7` keeps
+  exactly the wrong facts.
 
-**Social log.** Each Start → Pause is an `InteractSession` in `state.sessions` (newest first, max 60 sessions × 300 events; taps under 20 s with nothing noticed aren't kept), saved on every event so a reload loses nothing, on this iPad only (Settings has Clear history). It's a log for the teacher to **see Poco is working and follow Poco's decision-making**, not a feelings tracker: there are deliberately no feeling counts, bars, trends or accuracy scores (the user found them unhelpful). `SessionDetail` shows notes newest first: "Started watching and listening", then for each event what Poco noticed (`noticedNote()`: "They looked sad"), what Poco decided ("→ Said "…"" or "→ Stayed quiet, showed it on their belly") and **why** (the event's `why`), then "Paused". Past sessions are one line each ("Thu, Sep 24, 6:20 PM · 9 min · 5 notes") that open to their notes. Give feedback is optional: a rating (Tough / OK / Great) and a note. Older saves may still hold per-moment `corrections`; they're ignored.
+**App**
 
-**Fun Mode, how it works.** Timed routines loop their steps (each held `ms` × comfort speed) until `seconds` is up, then Poco says "Great dancing". Copy Me is paced by the adult's Next move. Stop Poco bumps `poco.stopId`; FunScreen watches it and ends the routine (use the same signal for anything else that runs on timers). "Being touched" sensitivity was cut; Fun Mode may later need a "no touch prompts" option.
-
-**Teaching Mode, how it works.** Tiles are presets (data in `teaching/tiles.ts`) plus the adult's own (`customEmotions` in state). Editing a preset saves a custom copy with `replaces: <presetId>` that takes the preset's grid slot; deleting it is "Reset to original". `hiddenTiles` removes tiles from the grid. Tapping a tile = `play()` with its first line, then its page opens; line rows use `say()` (no new gesture). Lessons are presets (`teaching/lessons.ts`, not stored) plus `lessons` in state; steps are Poco steps (tile + line) or teacher cues (adult-only, Poco holds still). The player never advances on a timer. Lesson steps reference tiles by id, so an edited preset is picked up automatically.
-
-## 9. Design system (from the original spec; follow it)
-
-**Signature idea:** Poco's belly is a dot-matrix screen and the whole app uses that language (LED tiles, LED progress dots, Doto numbers). Everything else is soft, chunky and friendly, like kids' learning apps.
-
-- **Colors** are CSS variables in `tokens.css` (`--ink`, `--navy`, `--orange` for LEDs/accents, `--orange-text` for orange text/fills with white text, `--ice` left stage, `--paper` right panel, …). **No gradients anywhere. No emoji anywhere** (use LED patterns or inline SVG).
-- **Fonts:** Sniglet (headlines, Poco's speech, tile labels), Lexend (body, buttons; chosen to reduce visual stress), Doto (eyebrows, step numbers, small tags, numeric readouts).
-- **Shapes:** pill inputs (height ~60px, radius 999px, 2px `--line` border); cards white, radius 24–28px; buttons have a solid bottom "ledge" shadow that squishes on `:active`. Primary = navy, secondary = white, orange CTA only for Start on step 7.
-- **Layout:** landscape 1180×820 target; left stage `clamp(340px, 37vw, 440px)` with speech bubble + Poco (300×340) + floor; right panel with progress, scrolling step body, footer (Back / Continue). Must work at 1024×768 and 1366×1024 without horizontal scroll.
-- **Accessibility:** real buttons/inputs/labels; pill groups `role=group` + `aria-pressed`; toggles `role=switch`; tabs with `role=tablist/tab`; touch targets ≥ 44px; orange focus ring on `:focus-visible`; text contrast ≥ 4.5:1; emotion colors always paired with a label and face; `prefers-reduced-motion` disables all animation and the typewriter.
-- The feelings are Happy, Sad, Angry, Surprised, Neutral, Calm (core) and Excited, Tired, Worried, Silly, Shy, Frustrated. Faces from `led_matrix/emotions.py` are copied dot for dot (Scared is left out: no robot movement); Calm, Shy and Frustrated use the app's own faces. Faces are copied dot for dot; colors are its LED colors converted for screens. Each feeling has a face tile and a color tile (show_face / show_color). If emotions.py changes, update `patterns.ts` and `emotions.ts` to match.
-
-## 10. Gotchas
-
-- Buttons inside the step `<form>` must be `type="button"` (ChunkyButton defaults to it) or they submit the step. Text inputs that shouldn't submit on Enter call `preventDefault` (see Make your own).
+- Buttons inside the step `<form>` must be `type="button"` or they submit the
+  step. Text inputs that shouldn't submit on Enter call `preventDefault`.
 - React StrictMode is on; effects run twice in dev, so keep them idempotent.
-- iOS only shows `:active` press styles because `main.tsx` adds an empty `touchstart` listener.
-- If state shape or step numbering changes, bump the storage key or normalize in `load()`/`normalizeChild()` in the provider.
+- iOS only shows `:active` styles because `main.tsx` adds an empty `touchstart`
+  listener.
+- If state shape or step numbering changes, bump the storage key
+  (`poco.onboarding.v2`) or normalize in `load()`.
 
-## 11. Working with this user
+## 10. What leaves this laptop
 
-- Wants to **talk through bigger changes before code** (architecture, new features); cosmetic tweaks can go straight in.
-- Iterates visually: after UI changes, build and check screenshots at 1180×820 and 1024×768.
-- Prefers simple, clean UI over feature-dense screens.
+The old README said data "stays on the iPad". That was true of the app alone and
+is **not** true of the system, so here is the real answer.
+
+| | where it runs | kept |
+|---|---|---|
+| camera frames, face detection, emotion | this laptop | never stored, never sent |
+| speech → text (Whisper + Silero) | this laptop | never stored, never sent |
+| transcript → suggestion | Anthropic API | not used for training; transient |
+| suggestion → speech audio | ElevenLabs API | transient |
+| facts about the friend | Backboard | **stored indefinitely** |
+
+**No audio or video ever leaves the laptop.** Face detection, emotion
+classification and transcription are all local. What goes out is text.
+
+**Cross-session memory is off by default** (`--memory` turns it on). Poco's user
+is covered by the adult who set him up. The friend is not covered by anyone —
+they are sitting in front of a robot because they came to talk to a child, and
+"Running in the mornings helps this friend stay calm before stressful days" is a
+personal detail about an identifiable person, often another child. Storing that
+on a vendor's server should be a decision someone makes on purpose, not a
+default. It measurably improves the advice, so it is worth turning on once
+somebody has decided that is fine.
+
+If the "everything stays local" answer is wanted back, the honest route is a
+local model for the coach and local TTS, and a real drop in quality. Do not claim
+it without doing it.
+
+## 11. Design system
+
+**Signature idea:** Poco's belly is a dot-matrix screen and the whole app uses
+that language (LED tiles, LED progress dots, Doto numbers). Everything else is
+soft, chunky and friendly.
+
+- **Colours** are CSS variables in `tokens.css`. **No gradients. No emoji** — use
+  LED patterns or inline SVG.
+- **Fonts:** Sniglet (headlines, Poco's speech, tile labels), Lexend (body,
+  buttons; chosen to reduce visual stress), Doto (eyebrows, numbers, tags).
+- **Shapes:** pill inputs (~60px, radius 999px, 2px border); cards white, radius
+  24–28px; buttons have a solid bottom ledge that squishes on `:active`. Primary
+  navy, secondary white, orange CTA only for Start on step 7.
+- **Layout:** landscape 1180x820 target; must work at 1024x768 and 1366x1024
+  without horizontal scroll.
+- **Accessibility:** real buttons/inputs/labels; `role=group` + `aria-pressed`
+  for pill groups; `role=switch` for toggles; touch targets ≥ 44px; orange focus
+  ring on `:focus-visible`; contrast ≥ 4.5:1; **emotion colours always paired
+  with a label and a face**, because yellow/orange are low-contrast on white and
+  green/orange are close for protan vision; `prefers-reduced-motion` disables all
+  animation and the typewriter.
+
+## 12. File map
+
+```
+server/                 the laptop: perception, judgement, voice
+  poco/devices.py         which camera index and microphone name to use
+  poco/vision/emotion.py  YuNet + HSEmotion, smoothing, EmotionEvent
+  poco/audio/speech.py    capture, Silero endpointing, Whisper, mic muting
+  poco/social/context.py  fuses face + speech on one timeline -> Turn
+  poco/social/coach.py    Claude -> Suggestion(say, gesture, belly, reason, remember)
+  poco/social/memory.py   Backboard, opt-in, off the critical path
+  poco/voice/speaker.py   ElevenLabs v3, plus deafening the mic while speaking
+  poco/bridge/events.py   PocoEvent / PocoAction, ported from pocoClient.ts
+  emotion_demo.py         vision only; --list-cameras, --record, --guide, tuning keys
+  speech_demo.py          microphone only
+  social_demo.py          the whole pipeline
+  tune_sweep.py           sweep thresholds against a labelled recording
+
+servos/                 Poco's 11 servos
+  gestures.py             the 23 keyframed movements, all starting/ending at home
+  poco_motion.py          Poco class: poses, easing, speed and amount scaling
+  servo_link.py           serial link to the Arduino
+  poses.json              calibrated poses; set_home.py / pose_editor.py to edit
+  servo_test/             firmware
+
+led_matrix/             the 8x8 NeoPixel belly
+  led_matrix.py           LedMatrix: pixels, frames, fades, brightness
+  emotions.py             the 8x8 faces and their LED colours
+  modes.py, solid.py, text.py
+  matrix_firmware/        firmware
+
+src/                    the iPad app
+  app/                    AppProvider (state, reducer, persistence), AppShell, PocoStage
+  poco/                   PocoCharacter, LedMatrix, LedEditor, patterns.ts, emotions.ts,
+                          pocoClient.ts  <- the contract; server/poco/bridge mirrors it
+                          serverUrl.ts   <- where the laptop is, for the installed app
+  teaching/               tiles.ts, lessons.ts, TeachingScreen + editors
+  interacting/            InteractingScreen, SessionSummary, FeedbackForm, sessionStats.ts
+  fun/                    funRoutines.ts, FunScreen
+  onboarding/             OnboardingLayout, steps/Step1You … Step7Hello
+  ui/, styles/
+
+ios/                    Capacitor wrapper: the app as an installed iPad app
+```
+
+## 13. Working with this project
+
+- **Talk through bigger changes before writing them** — architecture, new
+  features, anything that changes what Poco does. Cosmetic tweaks can go straight
+  in.
+- **Iterate visually.** After UI changes, build and check screenshots at 1180x820
+  and 1024x768.
+- **Measure before tuning.** Every threshold in the server came from a sweep
+  against a recording, and several confident guesses turned out wrong — the C270
+  microphone was written off on a number that turned out to be measuring distance
+  rather than the microphone. Record it, sweep it, then decide.
+- **Prefer simple, clean screens** over feature-dense ones.

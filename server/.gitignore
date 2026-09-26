@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Camera probe snapshots
+camera_*.jpg
+
+# Recorded tuning sessions
+*.mp4
+*.labels.csv
+
+# Secrets
+.env
