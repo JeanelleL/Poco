@@ -1,4 +1,4 @@
-import { SERVER_PORT } from './serverUrl';
+import { isInstalledApp, SERVER_PORT } from './serverUrl';
 import { WsPocoClient } from './wsPocoClient';
 
 // The UI only talks to Poco through this interface. The mock logs what it
@@ -324,7 +324,12 @@ export class MockPocoClient implements PocoClient {
 function chooseClient(): PocoClient {
   const q = new URLSearchParams(window.location.search);
   if (q.has('mock')) return new MockPocoClient();
-  const servedByLaptop = window.location.port === String(SERVER_PORT);
+  // Installed as an app there is no port to recognise - it loads from
+  // capacitor://localhost - so the wrapper always means the real robot. It is
+  // the whole point of installing it, and without this the native build would
+  // quietly run the mock.
+  const servedByLaptop =
+    isInstalledApp() || window.location.port === String(SERVER_PORT);
   if (q.has('real') || servedByLaptop) {
     const real = new WsPocoClient();
     // Connect eagerly so Step6Connect finds it already up; a failure here just
