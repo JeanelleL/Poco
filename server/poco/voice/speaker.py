@@ -176,8 +176,7 @@ class Voice:
             self.speaking = True
             first_audio = None
             played = 0
-            stream = sd.RawOutputStream(samplerate=SAMPLE_RATE, channels=1,
-                                        dtype="int16", device=self.speaker)
+            stream = self._open_stream()
             playing_since = None
             try:
                 stream.start()
@@ -220,10 +219,40 @@ class Voice:
             return Spoken(text=text, latency=first_audio or (time.monotonic() - t0),
                           duration=duration, characters=len(line))
 
+    def _open_stream(self):
+        """Open the output, falling back to the system default.
+
+        PortAudio raises -9986 when the chosen device has gone away - a
+        monitor unplugged, a Bluetooth speaker asleep - and the failure
+        arrives as an exception inside a background thread, so the only
+        symptom is Poco silently not talking. Falling back keeps him audible;
+        the message says what happened.
+        """
+        try:
+            return sd.RawOutputStream(samplerate=SAMPLE_RATE, channels=1,
+                                      dtype="int16", device=self.speaker)
+        except Exception as exc:
+            if self.speaker is None:
+                raise
+            print(f"  [voice] output device {self.speaker} failed ({exc}); "
+                  f"falling back to the system default", flush=True)
+            self.speaker = None
+            return sd.RawOutputStream(samplerate=SAMPLE_RATE, channels=1,
+                                      dtype="int16", device=None)
+
+    def _say_safely(self, text, emotion, listener) -> None:
+        try:
+            self.say(text, emotion, listener)
+        except Exception as exc:
+            # Otherwise this dies inside a daemon thread and the only sign is
+            # silence, which is indistinguishable from Poco choosing not to talk.
+            print(f"  [voice] could not speak {text[:40]!r}: "
+                  f"{type(exc).__name__}: {exc}", flush=True)
+
     def say_async(self, text: str, emotion: str | None = None, listener=None) -> threading.Thread:
         """Speak without blocking the caller's loop."""
         thread = threading.Thread(
-            target=self.say, args=(text, emotion, listener), daemon=True
+            target=self._say_safely, args=(text, emotion, listener), daemon=True
         )
         thread.start()
         return thread

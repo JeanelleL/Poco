@@ -20,9 +20,9 @@ CAMERA = 0
 # Matched against a substring of the input device's name.
 MIC = "C270"
 
-# Where Poco's voice comes out, matched the same way. Pinned rather than left to
-# the system default, which follows whatever was plugged in last - a monitor or
-# a dock becomes the default output and Poco talks into a device with no
-# speakers, which is indistinguishable from him not talking at all.
+# Where Poco's voice comes out, matched the same way. This is the speaker on
+# Poco, not the laptop's own - his voice should come from him. Pinned rather
+# than left to the system default, which follows whatever was plugged in last,
+# so a monitor or a dock silently becomes the thing Poco talks through.
 # None would mean "use the system default".
-SPEAKER = "MacBook Air Speakers"
+SPEAKER = "MT"
