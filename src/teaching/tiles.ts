@@ -25,6 +25,8 @@ export interface TileLine {
   /** Why Poco would say it, e.g. "Name it". Custom tiles have no groups. */
   group?: string;
   text: string;
+  /** A count from one to this, run by the robot in time with the belly (see PocoAction.count). */
+  count?: number;
 }
 
 export interface Tile {
@@ -299,7 +301,14 @@ const PRESETS: Preset[] = [
     pattern: 'five',
     gesture: 'calm',
     about: 'Counting slowly gives the body time to settle before acting.',
-    lines: () => routine("Let's count to five together.", ['One… two… three…', 'Four… five.'], 'I feel calmer now.'),
+    // One line, not two: the robot counts all five itself, each number on the
+    // belly as it is said, at a steady pace. Split across lines, every number's
+    // timing depended on when the voice got round to it.
+    lines: () => [
+      { group: 'Start', text: "Let's count to five together." },
+      { group: 'Guide', text: 'One… two… three… four… five.', count: 5 },
+      { group: 'Finish', text: 'I feel calmer now.' },
+    ],
   },
   {
     id: 'quiet',

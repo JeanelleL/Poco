@@ -187,7 +187,18 @@ export interface PocoAction {
   mix?: MoveMix;
   belly?: BellyFrame;
   say?: string;
+  /**
+   * Count aloud from one to this number, one every COUNT_STEP_MS, each digit
+   * on the belly as it is said. The robot runs it rather than the app sending
+   * each number: separate lines arrive whenever the voice gets round to them,
+   * and a count whose numbers do not match the belly teaches nothing. Sent
+   * instead of `say` - the robot speaks the numbers itself.
+   */
+  count?: number;
 }
+
+/** One counted number, spoken and shown. The server mirrors this as COUNT_STEP. */
+export const COUNT_STEP_MS = 2000;
 
 /**
  * Something Poco picked up and decided on their own, reported back (Social

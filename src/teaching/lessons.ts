@@ -27,9 +27,9 @@ function presetLessons(c: Ctx): Lesson[] {
     {
       id: 'lesson-meet-happy',
       title: 'Meet Happy',
-      goal: 'Name happy and notice what it looks like.',
+      goal: 'Name happiness and notice what it looks like.',
       steps: [
-        poco('happy', `Hi ${c.friend}! Today let's learn about happy.`),
+        poco('happy', `Hi ${c.friend}! Today let's learn about happiness.`),
         poco('happy', 'This is my happy face. My belly glows yellow.'),
         cue(`Point to Poco's smile. Ask ${c.child} to show a happy face.`),
         poco('happy', "When I'm happy, I smile and bounce!"),
@@ -72,7 +72,7 @@ function presetLessons(c: Ctx): Lesson[] {
     {
       id: 'lesson-worried',
       title: "It's Okay to Feel Worried",
-      goal: 'Name worried and practice asking for help.',
+      goal: 'Name worry and practice asking for help.',
       steps: [
         poco('worried', 'This is me feeling worried.'),
         poco('worried', 'Loud noises can make me feel worried.'),
