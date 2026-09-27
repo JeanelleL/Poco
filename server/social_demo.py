@@ -175,7 +175,10 @@ def main() -> None:
                         # so the camera keeps its 30 fps view of the face.
                         robot.perform(suggestion.gesture, suggestion.belly)
                     if suggestion.remember:
-                        print(f"       remembers: {suggestion.remember}")
+                        # Say which it is: the field is filled in either way,
+                        # but with --memory off nothing is actually kept.
+                        kept = "remembers" if memory is not None else "would remember"
+                        print(f"       {kept}: {suggestion.remember}")
                     print(f"       [{result.latency:.1f}s, {result.input_tokens} in "
                           f"+ {result.cached_tokens} cached, {result.output_tokens} out"
                           + (", REFUSED" if result.refused else "") + "]\n", flush=True)
