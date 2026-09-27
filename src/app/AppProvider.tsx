@@ -351,7 +351,8 @@ interface AppContextValue {
   saveLesson: (lesson: Lesson) => void;
   removeLesson: (id: string) => void;
   /** Poco says a line without a new gesture; optionally changes the belly too. */
-  say: (text: string, belly?: { pattern: Pattern; color: string }) => void;
+  /** `count` makes the robot count aloud to that number instead of saying `text` (see PocoAction.count). */
+  say: (text: string, belly?: { pattern: Pattern; color: string }, count?: number) => void;
   setStartMode: (mode: StartMode) => void;
   /** Add or update an Interacting session in the history. */
   saveSession: (session: InteractSession) => void;
@@ -438,11 +439,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setHidden = useCallback((id: string, hidden: boolean) => dispatch({ type: 'setHidden', id, hidden }), []);
   const saveLesson = useCallback((lesson: Lesson) => dispatch({ type: 'saveLesson', lesson }), []);
   const removeLesson = useCallback((id: string) => dispatch({ type: 'removeLesson', id }), []);
-  const say = useCallback((text: string, belly?: { pattern: Pattern; color: string }) => {
+  const say = useCallback((text: string, belly?: { pattern: Pattern; color: string }, count?: number) => {
     dispatch({ type: 'say', text, pattern: belly?.pattern, color: belly?.color });
     pocoClient.perform({
-      say: text,
+      // A count is spoken by the robot, number by number, so the line itself
+      // is only for the speech bubble. The belly still goes: its colour and
+      // brightness are what the digits are drawn in.
+      ...(count ? { count } : { say: text }),
       belly: belly && {
+        // The name matters as much as the grid: without it every spoken line
+        // replaced the breathing orb with a still picture of itself.
+        name: typeof belly.pattern === 'string' ? belly.pattern : undefined,
         pattern: patternRows(belly.pattern),
         color: belly.color,
         brightness: ref.current.data.comfort.brightness / 100,

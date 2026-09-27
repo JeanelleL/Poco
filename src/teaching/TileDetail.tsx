@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useApp } from '../app/AppProvider';
 import { LedMatrix } from '../poco/LedMatrix';
+import { COUNT_STEP_MS } from '../poco/pocoClient';
 import { ChunkyButton } from '../ui/ChunkyButton';
 import { BackRow, PlayIcon, type Go } from './TeachingScreen';
-import { useTiles } from './tiles';
+import { useTiles, type TileLine } from './tiles';
 
 /** One tile's page: what it is, and everything Poco can say about it. */
 export function TileDetail({ id, go }: { id: string; go: Go }) {
@@ -58,8 +59,13 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
    * needs a moment to take each line in, and lines running together is worse
    * than a pause. Measured against the real voice: this leaves about 0.7s of
    * quiet after each line.
+   *
+   * A count is timed exactly instead: the robot says one number every
+   * COUNT_STEP_MS, starting straight away because the numbers are recorded in
+   * advance.
    */
-  const lineMs = (text: string) => 1500 + text.length * 65;
+  const lineMs = (line: TileLine) =>
+    line.count ? line.count * COUNT_STEP_MS : 1500 + line.text.length * 65;
 
   /** Say lines from `i` onward, one after another. */
   const runFrom = (i: number) => {
@@ -69,10 +75,10 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
       return;
     }
     // The movement happens once, at the start; the rest are lines.
-    say(lines[i].text, belly);
+    say(lines[i].text, belly, lines[i].count);
     setSaid(i);
     setPulse((n) => n + 1);
-    timer.current = window.setTimeout(() => runFrom(i + 1), lineMs(lines[i].text));
+    timer.current = window.setTimeout(() => runFrom(i + 1), lineMs(lines[i]));
   };
 
   const actOut = () => {
@@ -90,7 +96,7 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
     play(tile.move, tile.color, tile.pattern, lines[0].text);
     setSaid(0);
     setPulse((n) => n + 1);
-    timer.current = window.setTimeout(() => runFrom(1), lineMs(lines[0].text));
+    timer.current = window.setTimeout(() => runFrom(1), lineMs(lines[0]));
   };
 
   // Tapping a tile in the grid acts it out and says its first line, then opens
@@ -101,7 +107,7 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
     if (started.current || said !== 0 || tile.lines.length < 2) return;
     started.current = true;
     setRunning(true);
-    timer.current = window.setTimeout(() => runFrom(1), lineMs(tile.lines[0].text));
+    timer.current = window.setTimeout(() => runFrom(1), lineMs(tile.lines[0]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -158,7 +164,7 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
               type="button"
               className={`say-row${said === i ? ' is-said' : ''}`}
               onClick={() => {
-                say(line.text, belly);
+                say(line.text, belly, line.count);
                 setSaid(i);
                 setPulse((n) => n + 1);
               }}

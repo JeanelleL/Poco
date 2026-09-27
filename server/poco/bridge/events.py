@@ -78,14 +78,22 @@ ORANGE = "#E8833A"  # Poco's default when the feeling is unknown
 # rainbow.
 # The app's pattern names that the robot can animate rather than draw still.
 # led_matrix/modes.py has a proper breathing orb - it grows over three seconds,
-# holds, and shrinks - and a counting one. The app can only send a single
-# static grid, so it sends the name too and the robot plays its own version.
-# The tiles say as much: the breaths tile's colour is commented "led_matrix
-# breathe orb, between its center and edge".
+# holds, and shrinks. The app can only send a single static grid, so it sends
+# the name too and the robot plays its own version. The tiles say as much: the
+# breaths tile's colour is commented "led_matrix breathe orb, between its center
+# and edge".
+#
+# The counting picture ("five") is deliberately not here. Its loop ran on its
+# own clock from whichever line first showed it, so the belly was on 3 while
+# Poco said "one". Counting is PocoAction.count instead, which draws each digit
+# as the voice says it.
 ANIMATED = {
     "orb": "breathe",
-    "five": "count",
 }
+
+# Seconds per counted number. Mirrors COUNT_STEP_MS in src/poco/pocoClient.ts,
+# which times the next line off it.
+COUNT_STEP = 2.0
 
 def breathe_timing() -> tuple[float, float, float, float]:
     """(fill, hold full, empty, hold empty) for the breathe gesture, in seconds.

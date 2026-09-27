@@ -27,6 +27,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from poco.robot.mix import STEP_S as MIX_STEP_S
+from poco.robot.mix import clean as clean_mix
+from poco.robot.mix import step_curves
+
 # servos/ and led_matrix/ are plain directories at the repo root rather than
 # installed packages - their own scripts run from inside them - so they are put
 # on the path here rather than importing them as `poco.servos`.
@@ -126,6 +130,7 @@ class Robot:
         # Bumped whenever something new is drawn, so a running animation knows
         # it has been superseded and stops.
         self._belly_gen = 0
+        self._animating: str | None = None   # which mode is running, if any
 
     # -- state -------------------------------------------------------------
 
@@ -360,6 +365,17 @@ class Robot:
         self._moving.set()
         self._moves.submit(self._play, move)
 
+    def perform_mix(self, mix: dict) -> None:
+        """Play the adult's own steps (Mix your own). Returns immediately."""
+        steps = clean_mix(mix)
+        if not steps:
+            return
+        if self._moving.is_set():
+            self._say("still moving - dropped a mix")
+            return
+        self._moving.set()
+        self._moves.submit(self._play_mix, steps)
+
     def animate(self, mode: str, brightness: float = 1.0) -> bool:
         """Play one of led_matrix's animated modes until something replaces it.
 
@@ -370,6 +386,13 @@ class Robot:
         if self._matrix is None:
             self._say(f"would animate {mode}")
             return True
+        # Already running this one: leave it be. A breathing exercise sends the
+        # same belly with every spoken line, and restarting would snap the orb
+        # back to empty each time - exactly when the child is being asked to
+        # keep breathing with it.
+        if mode == self._animating:
+            return True
+        self._animating = mode
         self._belly_gen += 1
         gen = self._belly_gen
         threading.Thread(target=self._animate, args=(mode, brightness, gen),
@@ -423,6 +446,9 @@ class Robot:
                 time.sleep(1 / (4 if self._moving.is_set() else 10))
         except Exception as exc:
             self._note_failure(f"animate {mode}", exc)
+        finally:
+            if self._animating == mode and gen == self._belly_gen:
+                self._animating = None
 
     def draw(self, pattern: list[str], color: str, brightness: float = 1.0) -> None:
         """Draw the face the app sent, rather than looking one up by name.
@@ -433,7 +459,16 @@ class Robot:
         third place.
         """
         self._belly_gen += 1   # stops any animation that is running
+        self._animating = None
         self._belly.submit(self._draw_frame, list(pattern), color, brightness)
+
+    def show_digit(self, n: int, color: str, brightness: float = 1.0) -> None:
+        """Draw the big counting digit n (1-5) from led_matrix/modes.py."""
+        import modes
+
+        digits = modes.COUNT_DIGITS
+        rows = digits[max(1, min(n, len(digits))) - 1]
+        self.draw([row.replace("X", "#") for row in rows], color, brightness)
 
     @staticmethod
     def _to_led(color: str, brightness: float) -> tuple[int, int, int]:
@@ -534,6 +569,29 @@ class Robot:
             # A sagging servo supply reboots the Uno mid-gesture. Poco going
             # quiet is better than the conversation stopping.
             self._note_failure(f"play {move}", exc)
+        finally:
+            self._moving.clear()
+
+    def _play_mix(self, steps: list[dict]) -> None:
+        try:
+            if self._poco is None:
+                self._say(f"would play a mix of {len(steps)} step(s)")
+                return
+            for step in steps:
+                curves, missing = step_curves(step, self._poses, self._pm)
+                if missing:
+                    self._say(f"mix step can't move {', '.join(missing)} - skipped that part")
+                secs = MIX_STEP_S / self._poco.speed
+                if not curves:
+                    time.sleep(secs)   # "Hold still"
+                    continue
+                # Every curve starts at home, so a limp servo wakes there.
+                self._poco._engage(self._poco._scaled({n: f(0.0) for n, f in curves.items()}))
+                self._poco._animate(secs, lambda e: self._poco._scaled(
+                    {n: f(min(1.0, e / secs)) for n, f in curves.items()}))
+            self._fails = 0
+        except Exception as exc:
+            self._note_failure("play mix", exc)
         finally:
             self._moving.clear()
 

@@ -11,7 +11,7 @@ src/poco/wsPocoClient.ts; the shapes it sends and expects are in
 src/poco/pocoClient.ts, which is the source of truth for both.
 
     app -> laptop   {"op": "hello"}
-                    {"op": "perform",    "action": {move|mix, belly, say}}
+                    {"op": "perform",    "action": {move|mix, belly, say|count}}
                     {"op": "settings",   "settings": {...}}
                     {"op": "stop"}
                     {"op": "interacting","on": true|false}
@@ -26,13 +26,14 @@ from __future__ import annotations
 import asyncio
 import json
 import mimetypes
+import threading
 from pathlib import Path
 
 from websockets.asyncio.server import ServerConnection, serve
 from websockets.datastructures import Headers
 from websockets.http11 import Response
 
-from poco.bridge import ANIMATED, SPEED, PocoEvent
+from poco.bridge import ANIMATED, COUNT_STEP, SPEED, PocoEvent
 from poco.link.session import Session
 
 PORT = 8765
@@ -50,6 +51,8 @@ class PocoServer:
         self.session_kwargs = session_kwargs
         self.music = None   # set in run(), so --no-voice also means no music
         self.clients: set[ServerConnection] = set()
+        self._counting = threading.Event()   # set = stop the running count
+        self._counting.set()
         self._loop: asyncio.AbstractEventLoop | None = None
         self.session = Session(on_event=self._on_event, robot=robot, voice=voice,
                                **session_kwargs)
@@ -158,9 +161,13 @@ class PocoServer:
                 move = action.get("move") or ""
                 if move:
                     self.robot.perform(move)
+                elif action.get("mix"):
+                    self.robot.perform_mix(action["mix"])
                 belly = action.get("belly")
                 named = (belly or {}).get("name")
-                if belly and named in ANIMATED:
+                if action.get("count"):
+                    pass   # the count draws its own digits, below
+                elif belly and named in ANIMATED:
                     # The robot has a moving version of this picture; the app
                     # can only send one still frame of it.
                     self.robot.animate(ANIMATED[named],
@@ -173,6 +180,8 @@ class PocoServer:
             say = action.get("say")
             if say and self.voice is not None:
                 self.voice.say_async(say)
+            if action.get("count"):
+                self._start_count(int(action["count"]), action.get("belly") or {})
 
         elif op == "settings":
             s = msg.get("settings") or {}
@@ -212,6 +221,7 @@ class PocoServer:
                 print("  asked for a suggestion", flush=True)
 
         elif op == "stop":
+            self._counting.set()
             if self.robot is not None:
                 self.robot.stop()
             if self.music is not None:
@@ -239,6 +249,38 @@ class PocoServer:
 
         else:
             raise ValueError(f"unknown op {op!r}")
+
+    def _start_count(self, upto: int, belly: dict) -> None:
+        """Count aloud to `upto`, each digit on the belly as it is said.
+
+        One thread owns the whole count so the numbers cannot drift apart: the
+        voice sets the pace and calls back as each number is heard. Without a
+        voice the belly still counts, on the same beat.
+        """
+        self._counting.set()                 # end any count already running
+        stop = self._counting = threading.Event()
+        color = belly.get("color", "#00D4B5")
+        brightness = float(belly.get("brightness", 1.0))
+        show = None
+        if self.robot is not None:
+            show = lambda k: self.robot.show_digit(k, color, brightness)
+
+        def run():
+            try:
+                if self.voice is not None:
+                    self.voice.count(upto, COUNT_STEP, on_number=show,
+                                     listener=getattr(self.session, "_listener", None),
+                                     stop=stop)
+                elif show is not None:
+                    for k in range(1, upto + 1):
+                        show(k)
+                        if stop.wait(COUNT_STEP):
+                            break
+            except Exception as exc:
+                # A dead thread is otherwise just silence mid-lesson.
+                print(f"  count failed: {type(exc).__name__}: {exc}", flush=True)
+
+        threading.Thread(target=run, daemon=True).start()
 
     # -- running -----------------------------------------------------------
 
@@ -282,6 +324,9 @@ class PocoServer:
             from poco.voice import Music
 
             self.music = Music()
+            # Recorded up front: a count is timed to the belly and cannot wait
+            # on ElevenLabs when it starts.
+            threading.Thread(target=self.voice.warm_count, daemon=True).start()
         self.warm_up()
         built = (self.app_dir / "index.html").is_file()
         async with serve(self._handle, "", self.port,

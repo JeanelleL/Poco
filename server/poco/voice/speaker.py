@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -48,6 +49,27 @@ MAX_CLIP_SECONDS = 30.0
 # output latency, so the real audio is pushed all the way out of the speaker
 # before the stream closes.
 DRAIN_PAD = 0.3
+
+# What Voice.count says, in order.
+NUMBER_WORDS = ["One", "Two", "Three", "Four", "Five",
+                "Six", "Seven", "Eight", "Nine", "Ten"]
+
+
+def _trim_silence(audio: np.ndarray, lead: float = 0.03) -> np.ndarray:
+    """Cut the quiet off the front of a clip, keeping `lead` seconds of it.
+
+    ElevenLabs starts each clip with a different amount of silence, so an
+    untrimmed "three" would be heard later after its digit than "two" was.
+    """
+    if not len(audio):
+        return audio
+    level = np.abs(audio.astype(np.int32))    # int16 abs overflows on -32768
+    loud = np.flatnonzero(level > 0.05 * level.max())
+    if not len(loud):
+        return audio
+    start = max(0, loud[0] - int(lead * SAMPLE_RATE))
+    return audio[start:]
+
 
 # v3 acts on inline tags. Poco is a robot penguin for children, so the delivery
 # carries as much as the words - the tag is taken from the feeling Poco reads in
@@ -126,6 +148,7 @@ class Voice:
         )
         self.speaking = False
         self._lock = threading.Lock()
+        self._numbers: dict[int, np.ndarray] = {}   # counted words, see count()
 
     def render(self, text: str, emotion: str | None = None) -> tuple[np.ndarray, float, int]:
         """Fetch the audio without playing it."""
@@ -224,6 +247,83 @@ class Voice:
                     listener.unmute_in(ECHO_TAIL)
             return Spoken(text=text, latency=first_audio or (time.monotonic() - t0),
                           duration=duration, characters=len(line))
+
+    def warm_count(self, upto: int = 5) -> None:
+        """Record the counting words now, so the first count starts on time."""
+        try:
+            self._number_clips(upto)
+        except Exception as exc:
+            print(f"  [voice] could not record the counting words ({exc}) - "
+                  f"will try again on the first count", flush=True)
+
+    def _number_clips(self, upto: int) -> dict[int, np.ndarray]:
+        """One clip per number, fetched once and kept.
+
+        A count is timed to the belly, so the words cannot be streamed: the
+        half second of latency on every request would land each number late
+        by a different amount. Fetched in parallel - five at once are no slower
+        than one.
+        """
+        missing = [k for k in range(1, upto + 1) if k not in self._numbers]
+        if missing:
+            with ThreadPoolExecutor(len(missing)) as pool:
+                for k, (audio, _, _) in zip(missing, pool.map(
+                        lambda k: self.render(f"{NUMBER_WORDS[k - 1]}."), missing)):
+                    self._numbers[k] = _trim_silence(audio)
+        return {k: self._numbers[k] for k in range(1, upto + 1)}
+
+    def count(self, upto: int, step: float, on_number=None, listener=None,
+              stop: threading.Event | None = None) -> None:
+        """Count aloud from one to `upto`, one number every `step` seconds.
+
+        `on_number(k)` is called as number k comes out of the speaker - the
+        belly draws its digit there, so what Poco shows and what he says change
+        together. Each number is padded out to exactly `step` and written to
+        one stream, so the pace is set by the audio device's clock rather than
+        by how quickly each word was spoken or fetched.
+        """
+        upto = max(1, min(upto, len(NUMBER_WORDS)))
+        clips = self._number_clips(upto)
+        per = int(step * SAMPLE_RATE)
+        with self._lock:
+            if listener is not None:
+                listener.mute_for(upto * step + ECHO_TAIL)
+            self.speaking = True
+            stream = self._open_stream()
+            stopped = False
+            try:
+                stream.start()
+                # Writing a block only queues it; the device plays it this much
+                # later, and that is when its digit should appear.
+                delay = max(stream.latency, 0.0)
+                slice_ = SAMPLE_RATE // 10
+                for k in range(1, upto + 1):
+                    if on_number is not None:
+                        threading.Timer(delay, on_number, args=(k,)).start()
+                    block = np.zeros(per, dtype=np.int16)
+                    clip = clips[k][:per]
+                    block[:len(clip)] = clip
+                    # Written a tenth of a second at a time: each write blocks
+                    # until the device has room, which paces the count, and
+                    # checking between them lets Stop Poco cut in straight away.
+                    for i in range(0, per, slice_):
+                        if stop is not None and stop.is_set():
+                            stopped = True
+                            break
+                        stream.write(block[i:i + slice_].tobytes())
+                    if stopped:
+                        break
+            finally:
+                # Stop Poco cuts the count off; otherwise let the last number
+                # finish (its block already ends in silence).
+                if stopped:
+                    stream.abort()
+                else:
+                    stream.stop()
+                stream.close()
+                self.speaking = False
+                if listener is not None:
+                    listener.unmute_in(ECHO_TAIL)
 
     def _open_stream(self):
         """Open the output, falling back to the system default.

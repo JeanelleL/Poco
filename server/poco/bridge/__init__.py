@@ -1,6 +1,7 @@
 from .events import (
     ANIMATED,
     breathe_timing,
+    COUNT_STEP,
     BELLY_FACES,
     DOT_COLORS,
     EMOTION_COLORS,
@@ -20,6 +21,7 @@ from .events import (
 __all__ = [
     "ANIMATED",
     "breathe_timing",
+    "COUNT_STEP",
     "BELLY_FACES",
     "DOT_COLORS",
     "EMOTION_COLORS", "FEELING_MOVE", "ORANGE", "POCO_MOVES", "SLOW_MOVES",

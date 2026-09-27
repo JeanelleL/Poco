@@ -192,7 +192,8 @@ export interface PocoAction {
    * on the belly as it is said. The robot runs it rather than the app sending
    * each number: separate lines arrive whenever the voice gets round to them,
    * and a count whose numbers do not match the belly teaches nothing. Sent
-   * instead of `say` - the robot speaks the numbers itself.
+   * instead of `say` - the robot speaks the numbers itself - and the digits
+   * are drawn in `belly`'s colour and brightness, not its picture.
    */
   count?: number;
 }
