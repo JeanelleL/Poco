@@ -45,18 +45,18 @@ for _part in ("servos", "led_matrix"):
 #
 # name: (amplitude in microseconds, period in seconds, phase 0..1)
 IDLE_MOTION = {
-    "left_leg": (70, 9.0, 0.0),
-    "right_leg": (70, 9.0, 0.5),
-    "head_roll": (80, 11.0, 0.25),
-    "left_arm_pitch": (55, 13.0, 0.0),
-    "right_arm_pitch": (55, 13.0, 0.5),
-    "left_arm_roll": (45, 17.0, 0.3),
-    "right_arm_roll": (45, 17.0, 0.8),
+    "left_leg": (130, 5.0, 0.0),
+    "right_leg": (130, 5.0, 0.5),
+    "head_roll": (140, 7.0, 0.25),
+    "left_arm_pitch": (110, 9.0, 0.0),
+    "right_arm_pitch": (110, 9.0, 0.5),
+    "left_arm_roll": (90, 11.0, 0.3),
+    "right_arm_roll": (90, 11.0, 0.8),
 }
 
 # How long each idle glide takes. Also the longest a gesture can be kept
 # waiting, since the idle is only interrupted between glides.
-IDLE_STEP = 0.6
+IDLE_STEP = 0.45
 
 
 class Robot:
@@ -177,6 +177,25 @@ class Robot:
         if not parts:
             self._say("no home positions recorded - idle motion off")
             return
+
+        # Work out which way each servo can actually travel. Poco rests with
+        # his arms down, which puts the arm servos hard against a stop - the
+        # roll servos sit past the safety margin at home - so a symmetric swing
+        # gets clamped flat on one side and the arm barely moves. Anything
+        # short of room on both sides drifts inward instead, away from the stop.
+        plan = {}
+        for name, (amp, period, phase) in parts.items():
+            lo, hi = self._pm.safe_range(name)
+            rest = min(max(home[name], lo), hi)     # home itself may be outside
+            up, down = hi - rest, rest - lo
+            if up >= amp and down >= amp:
+                plan[name] = (rest, amp, period, phase, True)      # rock both ways
+            else:
+                reach = min(amp, max(up, down))
+                plan[name] = (rest, reach if up >= down else -reach,
+                              period, phase, False)                # drift inward
+        moving = [n for n, v in plan.items() if abs(v[1]) > 5]
+        self._say(f"idle motion on ({len(moving)} of {len(parts)} servos have room)")
         while not self._idle_stop.is_set():
             if self._moving.is_set():
                 # A real gesture owns the servos; it also ends at home, so the
@@ -185,13 +204,15 @@ class Robot:
                 continue
             try:
                 t = time.monotonic()
-                targets = {
-                    name: self._pm.clamp(
-                        name,
-                        home[name] + amp * math.sin(2 * math.pi * (t / period + phase)),
-                    )
-                    for name, (amp, period, phase) in parts.items()
-                }
+                targets = {}
+                for name, (rest, reach, period, phase, both) in plan.items():
+                    turn = 2 * math.pi * (t / period + phase)
+                    # Both ways: a sine centred on rest. One way: a raised
+                    # cosine, which leaves rest and returns to it rather than
+                    # trying to push through the stop.
+                    offset = (reach * math.sin(turn) if both
+                              else reach * (0.5 - 0.5 * math.cos(turn)))
+                    targets[name] = self._pm.clamp(name, rest + offset)
                 self._poco.move(targets, IDLE_STEP)
             except Exception as exc:
                 # Idle drift is not worth taking the robot down for.
