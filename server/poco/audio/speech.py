@@ -148,11 +148,26 @@ class SpeechListener:
     def mute_for(self, seconds: float) -> None:
         """Ignore the microphone for a while.
 
-        Used while Poco is talking: its voice reaches its own microphone, and
-        without this it transcribes itself and treats the result as something
+        Used while Poco is talking: his voice reaches his own microphone, and
+        without this he transcribes himself and treats the result as something
         the other person said.
+
+        Never shortens an existing mute - two clips overlapping should not let
+        the microphone open during the second one. Use `unmute_in` to shorten
+        deliberately.
         """
         self._muted_until = max(self._muted_until, time.monotonic() + seconds)
+
+    def unmute_in(self, seconds: float) -> None:
+        """Set the mute deadline outright, shortening it if it was longer.
+
+        A streamed clip has to be guarded by its worst-case length, because the
+        real one is unknown until the audio stops arriving. This is how that
+        guess gets corrected once it is known - without it the microphone stays
+        deaf for the whole worst case, and the next thing anyone says is simply
+        never heard.
+        """
+        self._muted_until = time.monotonic() + seconds
 
     @property
     def muted(self) -> bool:

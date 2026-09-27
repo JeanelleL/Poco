@@ -173,8 +173,10 @@ class Voice:
                 duration = played / SAMPLE_RATE
                 if listener is not None:
                     # Now the real length is known, release the microphone at
-                    # the right moment rather than the worst case.
-                    listener.mute_for(ECHO_TAIL)
+                    # the right moment rather than the worst case. This has to
+                    # SET the deadline: mute_for only ever extends, so using it
+                    # here left the microphone deaf for the full 30s guess.
+                    listener.unmute_in(ECHO_TAIL)
             return Spoken(text=text, latency=first_audio or (time.monotonic() - t0),
                           duration=duration, characters=len(line))
 
