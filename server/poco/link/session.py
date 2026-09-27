@@ -88,6 +88,7 @@ class Session:
         self.phase = "stopped"            # stopped | starting | watching
         self._detector = None             # kept between runs; loading is slow
         self._coaches: dict = {}          # one per mode, both kept warm
+        self._memories: dict = {}         # one store per mode, kept separate
         self.next_suggestion_in = 0.0     # seconds until Poco may speak again
 
     def start(self) -> None:
@@ -135,7 +136,16 @@ class Session:
             listener = SpeechListener(model_name=self.model, device=self.mic)
             ctx = SocialContext(suggest_cooldown=self.cooldown)
             coach = self._coaches[self.mode]
-            memory = Memory() if self.use_memory else None
+            # Separate stores per mode. Social mode remembers other people's
+            # friends; play mode remembers the child Poco belongs to. Mixing
+            # those in one pile would be wrong in both directions.
+            memory = None
+            if self.use_memory:
+                if self.mode not in self._memories:
+                    self._memories[self.mode] = Memory(
+                        assistant_name="Poco" if self.mode == "social" else "Poco-child"
+                    )
+                memory = self._memories[self.mode]
             listener.start()
 
             # The first frames off a webcam are black while auto-exposure
