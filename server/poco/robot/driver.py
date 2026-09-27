@@ -65,6 +65,10 @@ IDLE_MOTION = {
 # waiting, since the idle is only interrupted between glides.
 IDLE_STEP = 0.45
 
+# How long Stop Poco takes to glide every servo back home, at normal speed.
+# The same as the "home" gesture in servos/gestures.py.
+HOME_S = 1.2
+
 
 class Robot:
     """The physical Poco, or a convincing absence of one.
@@ -120,6 +124,9 @@ class Robot:
         self._moves = ThreadPoolExecutor(max_workers=1, thread_name_prefix="servos")
         self._belly = ThreadPoolExecutor(max_workers=1, thread_name_prefix="belly")
         self._moving = threading.Event()
+        # Set by stop() until the servos are home, so the gesture it cut short
+        # doesn't mark Poco as free on its way out.
+        self._homing = threading.Event()
         self.last_error: str | None = None
         # Consecutive serial failures. The board reboots when it is replugged
         # or when the servo supply sags, and the handle we hold is then dead -
@@ -131,6 +138,11 @@ class Robot:
         # it has been superseded and stops.
         self._belly_gen = 0
         self._animating: str | None = None   # which mode is running, if any
+        # When the body last started breathing in. The orb takes its phase from
+        # this rather than from its own clock: the gesture's first breath runs
+        # about a second long, so anything timed independently ends up a second
+        # ahead and stays there.
+        self._breath_t0: float | None = None
 
     # -- state -------------------------------------------------------------
 
@@ -430,9 +442,11 @@ class Robot:
             scale = max(0.0, min(1.0, brightness))
             palette = modes.MODES["breathe"]["palette"] if mode == "breathe" else None
             while gen == self._belly_gen and self._matrix is not None:
-                # Poco's speed setting stretches every gesture, so the orb has
-                # to stretch with it or Gentle mode pulls them apart again.
-                t = (time.monotonic() - start) * (self.speed or 1.0)
+                # Take the phase from the body when it is breathing, so every
+                # cycle re-aligns instead of accumulating the gesture's drift.
+                # Speed stretches a gesture, so the orb stretches with it.
+                base = self._breath_t0 if (palette and self._breath_t0) else start
+                t = (time.monotonic() - base) * (self.speed or 1.0)
                 rows = (modes._orb(self._breath(t), palette) if palette
                         else modes.frame(mode, t))
                 self._matrix.draw([[tuple(int(c * scale) for c in px) for px in row]
@@ -563,14 +577,23 @@ class Robot:
             if self._pm.missing_poses(steps, self._poses):
                 self._say(f"{move} needs poses recorded - skipped")
                 return
-            self._poco.play(steps, self._poses)
+            # Report each step so the belly can follow the body rather than
+            # run alongside it.
+            def on_step(_i: int, name: str) -> None:
+                if name == "breathe_in":
+                    self._breath_t0 = time.monotonic()
+
+            self._poco.play(steps, self._poses, on_step=on_step)
             self._fails = 0
+        except self._pm.Stopped:
+            pass   # Stop Poco cut it short; _go_home takes over
         except Exception as exc:
             # A sagging servo supply reboots the Uno mid-gesture. Poco going
             # quiet is better than the conversation stopping.
             self._note_failure(f"play {move}", exc)
         finally:
-            self._moving.clear()
+            if not self._homing.is_set():
+                self._moving.clear()
 
     def _play_mix(self, steps: list[dict]) -> None:
         try:
@@ -583,17 +606,20 @@ class Robot:
                     self._say(f"mix step can't move {', '.join(missing)} - skipped that part")
                 secs = MIX_STEP_S / self._poco.speed
                 if not curves:
-                    time.sleep(secs)   # "Hold still"
+                    self._poco._pause(secs)   # "Hold still"
                     continue
                 # Every curve starts at home, so a limp servo wakes there.
                 self._poco._engage(self._poco._scaled({n: f(0.0) for n, f in curves.items()}))
                 self._poco._animate(secs, lambda e: self._poco._scaled(
                     {n: f(min(1.0, e / secs)) for n, f in curves.items()}))
             self._fails = 0
+        except self._pm.Stopped:
+            pass
         except Exception as exc:
             self._note_failure("play mix", exc)
         finally:
-            self._moving.clear()
+            if not self._homing.is_set():
+                self._moving.clear()
 
     def _draw(self, feeling: str) -> None:
         try:
@@ -610,16 +636,43 @@ class Robot:
     # -- stopping ----------------------------------------------------------
 
     def stop(self) -> None:
-        """Go limp and dark. Matches the app's Stop Poco."""
+        """Stop Poco: cut any gesture short, glide every servo home and hold
+        there, and blank the belly. Returns immediately."""
         self.stop_idle()
+        if self._poco is not None:
+            # The running gesture raises Stopped at its next frame; the homing
+            # is queued behind it on the same worker, so the two never fight
+            # over the servos.
+            self._poco.stopped.set()
+            self._homing.set()
+            self._moving.set()
+            try:
+                self._moves.submit(self._go_home)
+            except RuntimeError:
+                # Shutting down; close() releases instead.
+                self._homing.clear()
+                self._moving.clear()
         try:
-            if self._poco is not None:
-                self._poco.release()
             if self._matrix is not None:
                 self._matrix.clear()
                 self._matrix.show()
         except Exception as exc:
             self._say(f"stop failed: {exc}")
+
+    def _go_home(self) -> None:
+        try:
+            self._poco.stopped.clear()
+            home = self._poses.get("home")
+            if not home:
+                self._say("no home positions recorded - can't go home")
+                return
+            self._poco.move(home, HOME_S)
+            self._fails = 0
+        except Exception as exc:
+            self._note_failure("go home", exc)
+        finally:
+            self._homing.clear()
+            self._moving.clear()
 
     def close(self) -> None:
         # Drain first: shutting down without waiting closed the serial port
@@ -628,6 +681,12 @@ class Robot:
         self._moves.shutdown(wait=True)
         self._belly.shutdown(wait=True)
         self.stop()
+        try:
+            # Going limp is right on the way out: nothing is left to hold him.
+            if self._poco is not None:
+                self._poco.release()
+        except Exception:
+            pass
         try:
             # One shared connection, so it is closed once here rather than by
             # each half in turn.

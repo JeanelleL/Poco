@@ -15,6 +15,7 @@ Pose specs, as used in gestures.py:
 import ast
 import json
 import math
+import threading
 import time
 from pathlib import Path
 
@@ -217,6 +218,10 @@ def ease(t):
     return t * t * (3 - 2 * t)
 
 
+class Stopped(Exception):
+    """Raised inside a move or gesture when Poco.stopped is set."""
+
+
 class Poco:
     def __init__(self, link, speed=1.0, amount=1.0):
         """speed scales every duration (0.7 = 30% slower); amount scales how
@@ -229,6 +234,14 @@ class Poco:
         # None = not being driven. A servo can't report where it is, so the
         # first command to a limp servo is a jump, not an interpolated move.
         self.pos = {name: None for name in CHANNELS}
+        # Set from another thread to cut a running move or gesture short: the
+        # next frame or pause raises Stopped. Whoever sets it clears it.
+        self.stopped = threading.Event()
+
+    def _pause(self, secs):
+        """Sleep, but wake at once and raise Stopped if stopped is set."""
+        if self.stopped.wait(secs):
+            raise Stopped
 
     def _scaled(self, targets):
         """Shrink each target's distance from home by self.amount."""
@@ -271,6 +284,8 @@ class Poco:
         """Drive servos along frame(elapsed_secs) -> {name: us} for secs."""
         t0 = time.perf_counter()
         while True:
+            if self.stopped.is_set():
+                raise Stopped
             frame_t0 = time.perf_counter()
             elapsed = min(secs, frame_t0 - t0)
             changed = {}
@@ -281,7 +296,7 @@ class Poco:
             self._send(changed)
             if elapsed >= secs:
                 return
-            time.sleep(max(0.0, FRAME_S - (time.perf_counter() - frame_t0)))
+            self._pause(max(0.0, FRAME_S - (time.perf_counter() - frame_t0)))
 
     def move(self, targets, secs, fast_lower=True):
         """Glide every servo in targets to its pulse width over secs.
@@ -352,11 +367,11 @@ class Poco:
                 step, fast_lower = step[1:], False
             spec, secs, *hold = step
             if spec == "wait":
-                time.sleep(secs / self.speed)
+                self._pause(secs / self.speed)
                 continue
             self.move(resolve(spec, poses), secs, fast_lower)
             if hold:
-                time.sleep(hold[0] / self.speed)
+                self._pause(hold[0] / self.speed)
 
     def release(self, names=None):
         for n in names or list(CHANNELS):
