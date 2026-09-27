@@ -31,6 +31,9 @@ ECHO_TAIL = 0.4
 # moment the stream finishes.
 MAX_CLIP_SECONDS = 30.0
 
+# Slack after the last sample is due, to cover the device's own buffering.
+DRAIN_PAD = 0.2
+
 # v3 acts on inline tags. Poco is a robot penguin for children, so the delivery
 # carries as much as the words - the tag is taken from the feeling Poco reads in
 # the friend, not from the feeling Poco is describing.
@@ -152,6 +155,7 @@ class Voice:
             first_audio = None
             played = 0
             stream = sd.RawOutputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16")
+            playing_since = None
             try:
                 stream.start()
                 tail = b""
@@ -160,13 +164,26 @@ class Voice:
                         continue
                     if first_audio is None:
                         first_audio = time.monotonic() - t0
+                        playing_since = time.monotonic()
                     buf = tail + chunk
                     # int16 frames must not be split across a write.
                     usable = len(buf) - (len(buf) % 2)
                     tail = buf[usable:]
                     stream.write(buf[:usable])
                     played += usable // 2
+                if tail:
+                    # An odd trailing byte is half a sample; pad it rather than
+                    # drop it, so the buffer ends on a frame boundary.
+                    stream.write(tail + b"\x00")
+                    played += 1
             finally:
+                # Wait for the audio to actually come out of the speaker.
+                # Writing the last chunk only means PortAudio has it queued, and
+                # stopping here cut the final syllable off every sentence.
+                if playing_since is not None:
+                    left = (played / SAMPLE_RATE) - (time.monotonic() - playing_since)
+                    if left > 0:
+                        time.sleep(left + DRAIN_PAD)
                 stream.stop()
                 stream.close()
                 self.speaking = False
