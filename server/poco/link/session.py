@@ -48,6 +48,13 @@ PLAY_SETTLE = 0.35
 # suggestion - a stream of advice about a single thing somebody said.
 SOCIAL_QUIET = 10.0
 
+# Play mode: how long Poco stays in a conversation after being spoken to.
+# Without this he answers the whole room, because in play mode everything said
+# is treated as said to him - which is true one-to-one and badly false in a
+# hall full of people. Saying his name opens the window; every exchange inside
+# it pushes it out again, so a real conversation never has to keep saying it.
+ENGAGED_SECONDS = 45.0
+
 
 class Session:
     """One run of Social Mode."""
@@ -79,6 +86,7 @@ class Session:
         self.use_memory = use_memory
         self.mode = mode
         self.asked = threading.Event()   # the adult pressed "Ask Poco"
+        self.engaged = False             # play mode: in a conversation with him
 
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -131,6 +139,7 @@ class Session:
         pool = ThreadPoolExecutor(max_workers=1)
         pending: Future | None = None
         last_heard = 0.0
+        engaged_until = 0.0
         try:
             cap = cv2.VideoCapture(self.camera, cv2.CAP_AVFOUNDATION)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -200,11 +209,16 @@ class Session:
                     })
                     del self.heard[:-12]
                     last_heard = now
+                    if ctx.addressed(utterance.text):
+                        engaged_until = now + ENGAGED_SECONDS
 
                 # Collect the finished answer first, so the check below can use
                 # the slot it frees on this same frame.
                 if pending is not None and pending.done():
                     self._deliver(pending, listener, ctx)
+                    # Answering keeps the conversation open, so a child talking
+                    # with him does not have to keep saying his name.
+                    engaged_until = max(engaged_until, time.monotonic() + ENGAGED_SECONDS)
                     self.thinking = False
                     pending = None
 
@@ -218,9 +232,16 @@ class Session:
                 # Never start thinking while they are still talking. The
                 # endpointer has not cut yet, so anything Poco said now would
                 # land on top of them mid-sentence.
-                quiet = not listener.speaking and now - last_heard >= settle
+                quiet = now - last_heard >= settle
+                if self.mode == "social":
+                    # Only here does a robot need to wait for a real stop.
+                    quiet = quiet and not listener.speaking
                 asked = self.asked.is_set()
+                # In play mode, only answer while in a conversation with him.
+                listening = self.mode != "play" or now < engaged_until
+                self.engaged = listening
                 if pending is None and last_heard and (asked or quiet) \
+                        and (asked or listening) \
                         and (asked or ctx.ready_to_suggest(now)):
                     self.asked.clear()
                     self.thinking = True
@@ -276,7 +297,11 @@ class Session:
             return
         if self.robot is not None:
             self.robot.perform(suggestion.gesture, suggestion.belly)
-        if suggestion.say and listener is not None and listener.speaking:
+        # Social mode only. There, Poco is beside somebody else's conversation
+        # and must not cut in. In play mode the child asked him something, and
+        # staying silent because they are still making noise reads as broken.
+        if (self.mode == "social" and suggestion.say
+                and listener is not None and listener.speaking):
             # They started again while Poco was thinking. The belly and the
             # movement still happen; the words wait for another opening rather
             # than cutting across them.
@@ -307,6 +332,7 @@ class Session:
             "running": self.running,
             "phase": self.phase,
             "mode": self.mode,
+            "engaged": self.engaged,
             "fps": round(self.fps, 1),
             "face": self.face,
             "faceConfidence": round(self.face_confidence, 2),
