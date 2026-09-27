@@ -87,15 +87,26 @@ ANIMATED = {
     "five": "count",
 }
 
-# The breathe gesture in servos/gestures.py: four seconds filling, six emptying,
-# three times over. The belly has its own rhythm - three in, half a second held,
-# three out, half a second resting - so left alone the orb and the body drift
-# apart, and by the end of a thirty second exercise the orb is emptying while
-# Poco is still breathing in. Which is worse than no orb at all, since a child
-# is being asked to breathe along with it. These are the body's numbers, and
-# the belly follows them.
-BREATHE_IN = 4.0
-BREATHE_OUT = 6.0
+def breathe_timing() -> tuple[float, float, float, float]:
+    """(fill, hold full, empty, hold empty) for the breathe gesture, in seconds.
+
+    Read out of servos/gestures.py rather than written down again here. Copying
+    the numbers is how they went wrong: a step is (pose, seconds, hold) and the
+    hold was missed, so the belly ran a ten second cycle against the body's
+    twelve and they pulled apart a breath at a time.
+
+    Falls back to the numbers as they are today if the gesture is not shaped
+    the way this expects, since a drifting orb beats no orb.
+    """
+    try:
+        from gestures import GESTURES
+
+        steps = [st[1:] if st[0] == "slow" else st for st in GESTURES["breathe"]]
+        (_, fill, *fill_hold), (_, empty, *empty_hold) = steps[0], steps[1]
+        return (float(fill), float(fill_hold[0] if fill_hold else 0.0),
+                float(empty), float(empty_hold[0] if empty_hold else 0.0))
+    except Exception:
+        return (4.0, 1.0, 6.0, 1.0)
 
 DOT_COLORS = {
     "r": "#FF3B30",

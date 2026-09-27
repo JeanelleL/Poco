@@ -382,12 +382,19 @@ class Robot:
         """
         import modes
 
-        from poco.bridge import BREATHE_IN, BREATHE_OUT
+        from poco.bridge import breathe_timing
 
-        p = t % (BREATHE_IN + BREATHE_OUT)
-        if p < BREATHE_IN:
-            return modes._ease(p / BREATHE_IN)
-        return 1.0 - modes._ease((p - BREATHE_IN) / BREATHE_OUT)
+        fill, hold_full, empty, hold_empty = breathe_timing()
+        p = t % (fill + hold_full + empty + hold_empty)
+        if p < fill:
+            return modes._ease(p / fill)
+        p -= fill
+        if p < hold_full:
+            return 1.0
+        p -= hold_full
+        if p < empty:
+            return 1.0 - modes._ease(p / empty)
+        return 0.0
 
     def _animate(self, mode: str, brightness: float, gen: int) -> None:
         try:
@@ -397,7 +404,9 @@ class Robot:
             scale = max(0.0, min(1.0, brightness))
             palette = modes.MODES["breathe"]["palette"] if mode == "breathe" else None
             while gen == self._belly_gen and self._matrix is not None:
-                t = time.monotonic() - start
+                # Poco's speed setting stretches every gesture, so the orb has
+                # to stretch with it or Gentle mode pulls them apart again.
+                t = (time.monotonic() - start) * (self.speed or 1.0)
                 rows = (modes._orb(self._breath(t), palette) if palette
                         else modes.frame(mode, t))
                 self._matrix.draw([[tuple(int(c * scale) for c in px) for px in row]
