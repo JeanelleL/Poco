@@ -1,0 +1,129 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Poco — live</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{--ink:#1c1c1e;--dim:#8e8e93;--line:#2c2c2e;--ok:#32d74b;--warn:#ff9f0a;--off:#48484a}
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;background:#000;color:#f2f2f7;
+       font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  h1{font-size:15px;margin:0 0 16px;color:var(--dim);font-weight:600;letter-spacing:.08em}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:16px}
+  .card{background:#1c1c1e;border:1px solid var(--line);border-radius:10px;padding:14px}
+  .label{color:var(--dim);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .big{font-size:26px;margin-top:6px;font-variant-numeric:tabular-nums}
+  .sub{color:var(--dim);font-size:12px;margin-top:2px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--off);margin-right:7px;vertical-align:middle}
+  .dot.on{background:var(--ok)} .dot.warn{background:var(--warn)}
+  .meter{height:10px;background:#000;border-radius:5px;overflow:hidden;margin-top:10px;border:1px solid var(--line)}
+  .meter i{display:block;height:100%;background:var(--ok);width:0;transition:width .1s linear}
+  .meter i.quiet{background:var(--off)}
+  table{width:100%;border-collapse:collapse}
+  td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  td.t{color:var(--dim);white-space:nowrap;padding-right:12px;font-size:12px}
+  button{background:#2c2c2e;color:#f2f2f7;border:1px solid var(--line);border-radius:7px;
+         padding:8px 14px;font:inherit;cursor:pointer;margin-right:8px}
+  button:hover{background:#3a3a3c}
+  #conn{float:right;font-size:12px;color:var(--dim)}
+</style>
+
+<h1>POCO — LIVE <span id="conn">connecting…</span></h1>
+
+<div style="margin-bottom:16px">
+  <button onclick="send({op:'interacting',on:true})">Start Social Mode</button>
+  <button onclick="send({op:'interacting',on:false})">Stop</button>
+  <button onclick="send({op:'stop'})">Stop Poco</button>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="label">Microphone</div>
+    <div class="big" id="mic">—</div>
+    <div class="meter"><i id="micbar"></i></div>
+    <div class="sub" id="micstate">not running</div>
+  </div>
+  <div class="card">
+    <div class="label">Face</div>
+    <div class="big" id="face">—</div>
+    <div class="sub" id="facesub">not running</div>
+  </div>
+  <div class="card">
+    <div class="label">Robot</div>
+    <div class="big" id="robot">—</div>
+    <div class="sub" id="fps">—</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:12px">
+  <div class="label">Heard <span class="sub" id="heardcount"></span></div>
+  <table id="heard"><tr><td class="sub">nothing yet — start Social Mode and talk</td></tr></table>
+</div>
+
+<div class="card">
+  <div class="label">Poco said</div>
+  <table id="events"><tr><td class="sub">nothing yet</td></tr></table>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let ws, events = [];
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}`);
+  ws.onopen = () => { $('conn').textContent = 'connected'; send({op:'hello'}); };
+  ws.onclose = () => { $('conn').textContent = 'reconnecting…'; setTimeout(connect, 1000); };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.op === 'status') render(m);
+    else if (m.op === 'ready') renderRobot(m);
+    else if (m.op === 'event') { events.unshift(m.event); events = events.slice(0,8); renderEvents(); }
+  };
+}
+function send(m) { if (ws?.readyState === 1) ws.send(JSON.stringify(m)); }
+
+function renderRobot(m) {
+  const bits = [];
+  if (m.servos) bits.push('servos'); if (m.belly) bits.push('belly');
+  $('robot').innerHTML = `<span class="dot ${bits.length?'on':''}"></span>` +
+    (bits.length ? bits.join(' + ') : 'none');
+}
+
+function render(s) {
+  const t = s.telemetry || {};
+  // dBFS to a 0..1 bar: -60 is silence, -10 is loud.
+  const level = Math.max(0, Math.min(1, (t.micDb + 60) / 50));
+  $('micbar').style.width = (level * 100) + '%';
+  $('micbar').className = t.hearingSpeech ? '' : 'quiet';
+  $('mic').textContent = t.running ? t.micDb.toFixed(0) + ' dB' : '—';
+  $('micstate').innerHTML = !t.running ? 'not running'
+    : t.micMuted ? '<span class="dot warn"></span>deaf — Poco is talking'
+    : t.hearingSpeech ? '<span class="dot on"></span>hearing speech'
+    : '<span class="dot"></span>listening';
+
+  $('face').textContent = t.running ? (t.face ?? 'no face') : '—';
+  $('facesub').textContent = !t.running ? 'not running'
+    : t.faceSeen ? Math.round(t.faceConfidence * 100) + '% confident'
+    : 'nobody in frame';
+  $('fps').textContent = t.running
+    ? `${t.fps} fps${t.thinking ? ' · thinking…' : ''}`
+    : 'Social Mode off';
+  if (t.error) $('fps').textContent = 'error: ' + t.error;
+
+  const rows = (t.heard || []).slice().reverse();
+  $('heardcount').textContent = rows.length ? `· last ${rows.length}` : '';
+  $('heard').innerHTML = rows.length
+    ? rows.map(h => `<tr><td class="t">${new Date(h.at*1000).toLocaleTimeString()}
+        · ${Math.round(h.confidence*100)}%</td><td>${esc(h.text)}</td></tr>`).join('')
+    : '<tr><td class="sub">nothing yet — start Social Mode and talk</td></tr>';
+}
+
+function renderEvents() {
+  $('events').innerHTML = events.length
+    ? events.map(e => `<tr><td class="t">${new Date(e.at).toLocaleTimeString()} · ${e.feeling}</td>
+        <td>${e.said ? esc(e.said) : '<i class="sub">stayed quiet</i>'}
+        ${e.why ? `<div class="sub">${esc(e.why)}</div>` : ''}</td></tr>`).join('')
+    : '<tr><td class="sub">nothing yet</td></tr>';
+}
+const esc = s => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+connect();
+</script>

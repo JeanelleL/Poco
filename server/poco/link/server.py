@@ -61,6 +61,18 @@ class PocoServer:
             return None
 
         path = request.path.split("?", 1)[0]
+
+        # /debug is served from beside this file rather than from the app's
+        # build, so it works before `npm run build` has ever been run - which
+        # is exactly when something is broken and you want to look at it.
+        if path in ("/debug", "/debug/"):
+            body = (Path(__file__).with_name("debug.html")).read_bytes()
+            return Response(200, "OK", Headers({
+                "Content-Type": "text/html; charset=utf-8",
+                "Content-Length": str(len(body)),
+                "Cache-Control": "no-cache",
+            }), body)
+
         target = self.app_dir / path.lstrip("/")
         if path == "/" or not target.is_file():
             # A single-page app: unknown paths are routes, not missing files.
@@ -182,14 +194,33 @@ class PocoServer:
 
     # -- running -----------------------------------------------------------
 
+    async def _status_loop(self) -> None:
+        """Push telemetry to anyone watching.
+
+        Only while something is connected: with no debug page open this would
+        otherwise wake up five times a second all session for nobody.
+        """
+        while True:
+            await asyncio.sleep(0.2)
+            if self.clients:
+                await self.broadcast({
+                    "op": "status",
+                    "telemetry": self.session.telemetry(),
+                })
+
     async def run(self) -> None:
         self._loop = asyncio.get_running_loop()
         built = (self.app_dir / "index.html").is_file()
         async with serve(self._handle, "", self.port,
                          process_request=self._static) as server:
             print(f"Poco on http://localhost:{self.port}  (ws on the same port)")
+            print(f"  live debug: http://localhost:{self.port}/debug")
             print(f"  app: {'serving ' + str(self.app_dir) if built else 'NOT BUILT - run npm run build'}")
             if self.robot is not None:
                 print(f"  robot: servos={self.robot.servos_ready} "
                       f"belly={self.robot.belly_ready}")
-            await server.serve_forever()
+            status = asyncio.create_task(self._status_loop())
+            try:
+                await server.serve_forever()
+            finally:
+                status.cancel()

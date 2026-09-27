@@ -58,6 +58,18 @@ class Session:
         self.fps = 0.0
         self.last_error: str | None = None
 
+        # Live telemetry for the debug page. Plain attributes, written from the
+        # loop thread and read from the server's - all single values, so a torn
+        # read is at worst one stale number on a screen refreshing 5x a second.
+        self.face: str | None = None      # emotion the camera reads right now
+        self.face_confidence = 0.0
+        self.face_seen = False
+        self.mic_db = -90.0               # input level, for "is the mic live"
+        self.hearing_speech = False       # Silero thinks someone is talking
+        self.mic_muted = False            # deaf while Poco talks
+        self.heard: list[dict] = []       # recent transcripts
+        self.thinking = False             # a Claude call is in flight
+
     def start(self) -> None:
         if self.running:
             return
@@ -109,15 +121,31 @@ class Session:
                 face, _ = detector.process(frame, now)
                 ctx.observe_face(face, now)
 
+                self.face_seen = face is not None
+                self.face = face.emotion if face is not None else None
+                self.face_confidence = face.confidence if face is not None else 0.0
+                self.mic_db = listener.level_db
+                self.hearing_speech = listener.speaking
+                self.mic_muted = listener.muted
+
                 utterance = listener.poll()
                 if utterance:
                     ctx.add_utterance(utterance)
+                    self.heard.append({
+                        "text": utterance.text,
+                        "confidence": round(utterance.confidence, 2),
+                        "seconds": round(utterance.duration, 1),
+                        "at": time.time(),
+                    })
+                    del self.heard[:-12]
                     if ctx.ready_to_suggest(now) and pending is None:
+                        self.thinking = True
                         pending = pool.submit(self._think, coach, ctx, memory, now)
                         ctx.mark_suggested(now)
 
                 if pending is not None and pending.done():
                     self._deliver(pending, listener)
+                    self.thinking = False
                     pending = None
 
                 self.fps = 0.9 * self.fps + 0.1 / max(now - last, 1e-6)
@@ -153,6 +181,22 @@ class Session:
             self.voice.say_async(suggestion.say, emotion=suggestion.belly,
                                  listener=listener)
         self.on_event(event_for(suggestion.belly, suggestion.say, suggestion.reason))
+
+    def telemetry(self) -> dict:
+        """Everything the debug page shows."""
+        return {
+            "running": self.running,
+            "fps": round(self.fps, 1),
+            "face": self.face,
+            "faceConfidence": round(self.face_confidence, 2),
+            "faceSeen": self.face_seen,
+            "micDb": round(self.mic_db, 1),
+            "hearingSpeech": self.hearing_speech,
+            "micMuted": self.mic_muted,
+            "thinking": self.thinking,
+            "heard": self.heard[-8:],
+            "error": self.last_error,
+        }
 
     # -- for a belly that tracks the moment, not the last sentence ---------
 
