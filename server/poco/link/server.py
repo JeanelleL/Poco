@@ -134,8 +134,8 @@ class PocoServer:
                 # Nobody is watching. The app pauses Poco when its screen goes
                 # away, and a dropped Wi-Fi connection should do the same rather
                 # than leave him running unseen with the camera on.
-                print("  no apps left - pausing Social Mode", flush=True)
-                self.session.stop()
+                print("  Social Mode: stop (no apps connected)", flush=True)
+                self.session.stop("every app disconnected")
 
     def _ready(self) -> dict:
         return {
@@ -184,9 +184,13 @@ class PocoServer:
 
         elif op == "interacting":
             if msg.get("on"):
+                print("  Social Mode: start", flush=True)
                 self.session.start()
             else:
-                self.session.stop()
+                # Normal, not a fault: the app pauses Poco whenever the
+                # Interacting screen goes away, so switching tabs stops him.
+                print("  Social Mode: stop (the app asked)", flush=True)
+                self.session.stop("the app left the Social screen")
             await self.broadcast(self._ready())
 
         else:
@@ -208,8 +212,29 @@ class PocoServer:
                     "telemetry": self.session.telemetry(),
                 })
 
+    def warm_up(self) -> None:
+        """Load the models before anyone asks, so the first Start is quick."""
+        import threading
+
+        def load():
+            from poco.audio.speech import load_model
+            from poco.social import Coach
+            from poco.vision import EmotionDetector
+
+            try:
+                self.session._detector = EmotionDetector()
+                load_model(self.session.model)
+                self.session._coach = Coach(effort=self.session.effort)
+                print("  models ready", flush=True)
+            except Exception as exc:
+                print(f"  warm-up failed ({exc}) - they will load on first start",
+                      flush=True)
+
+        threading.Thread(target=load, daemon=True).start()
+
     async def run(self) -> None:
         self._loop = asyncio.get_running_loop()
+        self.warm_up()
         built = (self.app_dir / "index.html").is_file()
         async with serve(self._handle, "", self.port,
                          process_request=self._static) as server:

@@ -26,6 +26,20 @@ import numpy as np
 import sounddevice as sd
 
 SAMPLE_RATE = 16000
+
+# Loading Whisper takes several seconds, and a listener is built every time
+# Social Mode starts. Keeping the model means the second start is immediate
+# instead of leaving someone looking at a robot that appears to be ignoring
+# them. It is read-only in use, so sharing one across listeners is safe.
+_MODELS: dict[str, object] = {}
+
+
+def load_model(name: str):
+    from faster_whisper import WhisperModel
+
+    if name not in _MODELS:
+        _MODELS[name] = WhisperModel(name, device="cpu", compute_type="int8")
+    return _MODELS[name]
 FRAME_MS = 30
 FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000
 
@@ -114,9 +128,7 @@ class SpeechListener:
     # -- lifecycle ---------------------------------------------------------
 
     def start(self) -> None:
-        from faster_whisper import WhisperModel
-
-        self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8")
+        self._model = load_model(self.model_name)
         self._stream = sd.InputStream(
             samplerate=SAMPLE_RATE, channels=1, dtype="float32",
             blocksize=FRAME_SAMPLES, device=self.device, callback=self._on_audio,

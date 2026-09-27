@@ -69,16 +69,25 @@ class Session:
         self.mic_muted = False            # deaf while Poco talks
         self.heard: list[dict] = []       # recent transcripts
         self.thinking = False             # a Claude call is in flight
+        self.stopped_because: str | None = None   # why the last run ended
+        self.phase = "stopped"            # stopped | starting | watching
+        self._detector = None             # kept between runs; loading is slow
+        self._coach = None
+        self.next_suggestion_in = 0.0     # seconds until Poco may speak again
 
     def start(self) -> None:
         if self.running:
             return
+        self.stopped_because = None
+        self.phase = "starting"
         self._stop.clear()
         self.running = True
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
-    def stop(self) -> None:
+    def stop(self, because: str = "asked to") -> None:
+        if self.running and self.stopped_because is None:
+            self.stopped_because = because
         self._stop.set()
         if self._thread is not None:
             # Long enough for a frame grab and a model call to finish, so the
@@ -99,10 +108,17 @@ class Session:
             if not cap.isOpened():
                 raise RuntimeError(f"could not open camera {self.camera}")
 
-            detector = EmotionDetector()
+            # Built once and kept. Rebuilding these every time Social Mode
+            # started cost about 11 seconds before the first frame, which looks
+            # exactly like the robot being broken.
+            if self._detector is None:
+                self._detector = EmotionDetector()
+            if self._coach is None:
+                self._coach = Coach(effort=self.effort)
+            detector = self._detector
             listener = SpeechListener(model_name=self.model, device=self.mic)
             ctx = SocialContext(suggest_cooldown=self.cooldown)
-            coach = Coach(effort=self.effort)
+            coach = self._coach
             memory = Memory() if self.use_memory else None
             listener.start()
 
@@ -112,10 +128,14 @@ class Session:
             while time.monotonic() - t0 < WARMUP_SECONDS and not self._stop.is_set():
                 cap.read()
 
+            self.phase = "watching"
             last = time.monotonic()
             while not self._stop.is_set():
                 ok, frame = cap.read()
                 if not ok:
+                    # A dead camera looked exactly like a clean stop before:
+                    # the loop just ended and the telemetry sat there frozen.
+                    self.stopped_because = "the camera stopped returning frames"
                     break
                 now = time.monotonic()
                 face, _ = detector.process(frame, now)
@@ -148,12 +168,31 @@ class Session:
                     self.thinking = False
                     pending = None
 
+                # Counts down to when Poco may next speak. Without it, the
+                # cooldown looks identical to Poco being broken - it is 20s by
+                # default, which is a long time to sit watching nothing happen.
+                self.next_suggestion_in = max(
+                    0.0, ctx.suggest_cooldown - (now - ctx._last_suggested))
+
                 self.fps = 0.9 * self.fps + 0.1 / max(now - last, 1e-6)
                 last = now
         except Exception as exc:
             self.last_error = str(exc)
         finally:
             self.running = False
+            self.phase = "stopped"
+            # Clear the live numbers. Leaving the last frame's fps, face and
+            # "thinking" in place made a stopped session look like a running
+            # one, which is how this went unnoticed in the first place.
+            self.fps = 0.0
+            self.face = None
+            self.face_confidence = 0.0
+            self.face_seen = False
+            self.hearing_speech = False
+            self.mic_muted = False
+            self.mic_db = -90.0
+            self.thinking = False
+            self.next_suggestion_in = 0.0
             pool.shutdown(wait=False)
             if listener is not None:
                 listener.stop()
@@ -186,6 +225,7 @@ class Session:
         """Everything the debug page shows."""
         return {
             "running": self.running,
+            "phase": self.phase,
             "fps": round(self.fps, 1),
             "face": self.face,
             "faceConfidence": round(self.face_confidence, 2),
@@ -194,6 +234,8 @@ class Session:
             "hearingSpeech": self.hearing_speech,
             "micMuted": self.mic_muted,
             "thinking": self.thinking,
+            "nextIn": round(self.next_suggestion_in, 1),
+            "stoppedBecause": self.stopped_because,
             "heard": self.heard[-8:],
             "error": self.last_error,
         }

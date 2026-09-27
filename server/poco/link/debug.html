@@ -51,6 +51,7 @@
     <div class="label">Robot</div>
     <div class="big" id="robot">—</div>
     <div class="sub" id="fps">—</div>
+    <div class="sub" id="why" style="color:var(--warn)"></div>
   </div>
 </div>
 
@@ -105,9 +106,14 @@ function render(s) {
     : t.faceSeen ? Math.round(t.faceConfidence * 100) + '% confident'
     : 'nobody in frame';
   $('fps').textContent = t.running
-    ? `${t.fps} fps${t.thinking ? ' · thinking…' : ''}`
+    ? `${t.fps} fps` +
+      (t.thinking ? ' · thinking…'
+        : t.nextIn > 0 ? ` · may speak in ${Math.ceil(t.nextIn)}s` : ' · ready to speak')
     : 'Social Mode off';
-  if (t.error) $('fps').textContent = 'error: ' + t.error;
+  // Why it stopped matters more than that it stopped: leaving the Social tab
+  // pauses Poco by design, and that is indistinguishable from a fault here.
+  $('why').textContent = t.error ? 'error: ' + t.error
+    : (!t.running && t.stoppedBecause) ? 'stopped: ' + t.stoppedBecause : '';
 
   const rows = (t.heard || []).slice().reverse();
   $('heardcount').textContent = rows.length ? `· last ${rows.length}` : '';
