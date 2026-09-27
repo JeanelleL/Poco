@@ -162,7 +162,7 @@ class Session:
                 # Collect the finished answer first, so the check below can use
                 # the slot it frees on this same frame.
                 if pending is not None and pending.done():
-                    self._deliver(pending, listener)
+                    self._deliver(pending, listener, ctx)
                     self.thinking = False
                     pending = None
 
@@ -215,7 +215,7 @@ class Session:
             memory.remember_async(result.suggestion.remember)
         return result
 
-    def _deliver(self, pending: Future, listener) -> None:
+    def _deliver(self, pending: Future, listener, ctx=None) -> None:
         try:
             suggestion = pending.result().suggestion
         except Exception as exc:
@@ -229,8 +229,13 @@ class Session:
             self.voice.say_async(suggestion.say, emotion=suggestion.belly,
                                  listener=listener)
         print(f"  [{suggestion.kind}] {suggestion.say or '(quiet)'}"
-              f"  -> {suggestion.gesture}", flush=True)
-        self.on_event(event_for(suggestion.belly, suggestion.say, suggestion.reason))
+              f"  -> {suggestion.gesture} / {suggestion.belly}", flush=True)
+        # PocoEvent.feeling is "the emotion of the person Poco is facing", so it
+        # is what the camera read - not the face Poco chose to pull. Those are
+        # different things now that he can look excited at someone who is calm,
+        # and the app's session history is a record of how well he reads people.
+        feeling = self.face or (ctx.current_emotion()[0] if ctx else None) or "neutral"
+        self.on_event(event_for(feeling, suggestion.say, suggestion.reason))
 
     def telemetry(self) -> dict:
         """Everything the debug page shows."""

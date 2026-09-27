@@ -26,12 +26,17 @@ MODEL = "claude-opus-5"
 # (and servos/gestures.py, where the keyframes live). Claude picks from this
 # list only, and it is filtered below: anything that occupies the robot for
 # eight seconds or more is a poor fit for a live conversation.
-from poco.bridge import POCO_MOVES, SLOW_MOVES  # noqa: E402
+from poco.bridge import BELLY_FACES, POCO_MOVES  # noqa: E402
 
-GESTURES = sorted(m for m in POCO_MOVES if m not in SLOW_MOVES)
+# Everything the robot can do. `breathe` is in here too: it runs 36 seconds,
+# which is far too long to drop into a conversation uninvited, but it is exactly
+# right when somebody asks Poco to help them calm down - and only Poco can tell
+# which of those is happening.
+GESTURES = sorted(POCO_MOVES)
 # Shown to Claude with how long each one takes, so a nine-second sway is chosen
 # knowingly rather than by accident.
 _GESTURE_MENU = ", ".join(f"{m} ({POCO_MOVES[m] / 1000:.0f}s)" for m in GESTURES)
+_FACE_MENU = ", ".join(BELLY_FACES)
 
 SYSTEM = """You are Poco, a small robot penguin standing beside someone autistic \
 while they talk with a friend. You watch the friend's face and listen to what \
@@ -73,9 +78,17 @@ versus sad. Treat it as a weak hint. What the friend actually said matters more.
 If the words and the face disagree, trust the words and stay cautious. Never \
 state the emotion reading as fact to your person.
 
-Pick a gesture that matches the moment, and a belly colour naming the feeling \
-you think the friend has. Both are always set, even when `say` is null - Poco is \
-expressive continuously, and only speaks occasionally.
+Always set a movement and a belly face, even when `say` is null - Poco is \
+expressive continuously and only speaks occasionally. Use the whole range: the \
+belly is how he shows what he makes of things, so excited, tired and scared are \
+as available as the obvious ones, and a movement like curious, look_around, shy \
+or good_job often says more than happy or sad. Match what was actually asked or \
+what is actually happening, rather than falling back on the same few.
+
+Two movements deserve care. `breathe` runs 36 seconds and is a calming exercise \
+- right when someone asks for help settling down, wrong as a reaction to someone \
+merely looking tense. `happy_dance` runs 9 seconds, which is a long time to \
+watch unless it was asked for.
 
 You may be given things Poco remembers about this friend from previous \
 conversations. Use them to make your suggestion more specific, but never repeat \
@@ -107,8 +120,10 @@ class Suggestion(BaseModel):
         "Prefer short ones mid-conversation. One of: " + _GESTURE_MENU
     )
     belly: str = Field(
-        description="The feeling you think the friend has: happy, sad, angry, "
-        "surprised, worried, or neutral."
+        description="The face to show on Poco's belly. Usually the feeling you "
+        "think the friend has, but when you are answering someone it is your "
+        "own expression - excited to be asked, tired if they say you look "
+        "sleepy. One of: " + _FACE_MENU
     )
     reason: str = Field(
         description="One short line on why, for the log. Never spoken aloud."
@@ -227,6 +242,8 @@ class Coach:
         suggestion = response.parsed_output
         if suggestion.gesture not in GESTURES:
             suggestion.gesture = "listen"  # never hand the robot a move it cannot do
+        if suggestion.belly not in BELLY_FACES:
+            suggestion.belly = "neutral"  # nor a face the matrix cannot draw
         return CoachResult(
             suggestion=suggestion,
             latency=latency,

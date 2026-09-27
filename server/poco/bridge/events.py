@@ -44,6 +44,14 @@ FEELING_MOVE = {
     "neutral": "calm",
 }
 
+# Every face the robot can draw by name, from led_matrix/emotions.py. This is
+# what Poco can SHOW, which is a wider set than the six a camera can READ off
+# someone else's face - he can look excited or tired without anybody having to
+# look excited or tired at him first. The app also knows calm, silly, shy and
+# frustrated, but the matrix has no face for those, so Poco cannot choose them.
+BELLY_FACES = ["happy", "sad", "angry", "scared", "surprised", "neutral",
+               "excited", "tired", "worried"]
+
 # Screen colours from emotions.ts. The robot side undoes the gamma to get back
 # to raw LED values, so these stay exactly as the app has them.
 EMOTION_COLORS = {
@@ -54,6 +62,13 @@ EMOTION_COLORS = {
     "worried": "#A177FF",
     "neutral": "#9E9E96",
 }
+# The wider set, for faces Poco shows that the camera never reads. Values are
+# led_matrix/emotions.py's raw LED colours converted for a screen.
+EMOTION_COLORS.update({
+    "scared": "#C400FF",
+    "excited": "#FF942E",
+    "tired": "#A9C2D4",
+})
 ORANGE = "#E8833A"  # Poco's default when the feeling is unknown
 
 # The app's comfort speeds.
