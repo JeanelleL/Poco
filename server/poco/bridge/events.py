@@ -71,6 +71,18 @@ EMOTION_COLORS.update({
 })
 ORANGE = "#E8833A"  # Poco's default when the feeling is unknown
 
+# Per-pixel colours, from DOT_COLORS in src/poco/patterns.ts. A pattern row is
+# usually '#' and '.', but some pictures - the rainbow the Party Lights routine
+# uses - spell out a colour per dot instead. Without these the robot treated
+# every letter as unlit and showed an empty belly where the app showed a
+# rainbow.
+DOT_COLORS = {
+    "r": "#FF3B30",
+    "y": "#FFC800",
+    "g": "#34C759",
+    "b": "#2F80FF",
+}
+
 # The app's comfort speeds.
 SPEED = {"Gentle": 1.6, "Normal": 1.0, "Lively": 0.7}
 

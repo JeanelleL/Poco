@@ -396,15 +396,25 @@ class Robot:
                 lit = sum(row.count("#") for row in pattern)
                 self._say(f"would draw {lit}-pixel face in {color}")
                 return
+            from poco.bridge import DOT_COLORS
+
             on = self._to_led(color, brightness)
             off = (0, 0, 0)
+            # A dot is either the picture's own colour ('#') or names its own
+            # ('r', 'y', 'g', 'b'). The rainbow in Party Lights is the second
+            # kind, and treating those letters as unlit left the belly blank
+            # while the app showed every colour.
+            named = {ch: self._to_led(hexcol, brightness)
+                     for ch, hexcol in DOT_COLORS.items()}
             h, w = self._matrix.height, self._matrix.width
-            frame = [
-                [on if x < len(pattern[y]) and pattern[y][x] == "#" else off
-                 for x in range(w)]
-                if y < len(pattern) else [off] * w
-                for y in range(h)
-            ]
+            frame = []
+            for y in range(h):
+                row = pattern[y] if y < len(pattern) else ""
+                frame.append([
+                    named.get(row[x].lower(), on) if x < len(row) and row[x] != "."
+                    else off
+                    for x in range(w)
+                ])
             self._matrix.draw(frame)
         except Exception as exc:
             self._note_failure("draw", exc)
