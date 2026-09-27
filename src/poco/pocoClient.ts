@@ -231,6 +231,8 @@ export interface PocoClient {
    * still will not speak over the person who is talking.
    */
   askForSuggestion(): void;
+  /** Background music for a Fun routine. The robot looks up the track by id. */
+  setMusic(on: boolean, track?: string): void;
   /** Listen for what Poco reports. Returns an unsubscribe function. */
   onEvent(listener: (e: PocoEvent) => void): () => void;
 }
@@ -295,6 +297,10 @@ export class MockPocoClient implements PocoClient {
   // roughly half the time (the real robot filters its own chatter), with a reason either way.
   askForSuggestion(): void {
     console.debug('[poco] askForSuggestion');
+  }
+
+  setMusic(on: boolean, track?: string): void {
+    console.debug('[poco] setMusic', on, track);
   }
 
   setInteracting(on: boolean, mode: PocoMode = 'social'): void {

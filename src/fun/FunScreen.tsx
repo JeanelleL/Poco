@@ -33,6 +33,7 @@ export function FunScreen() {
     if (poco.stopId === seenStop.current) return;
     seenStop.current = poco.stopId;
     clearTimers();
+    pocoClient.setMusic(false);
     setActive(null);
   }, [poco.stopId]);
 
@@ -43,6 +44,9 @@ export function FunScreen() {
   const start = (r: FunRoutine) => {
     if (playing) setPlay(false); // a routine takes him back from the conversation
     clearTimers();
+    // The robot looks the track up by routine id and ignores it if there is no
+    // file, so a routine with no music just runs silently.
+    pocoClient.setMusic(true, r.id);
     setActive({ id: r.id, runId: Date.now() });
     setMove(0);
     if (!r.seconds) {
@@ -60,6 +64,7 @@ export function FunScreen() {
     endTimer.current = window.setTimeout(() => {
       window.clearTimeout(loopTimer.current);
       setActive(null);
+      pocoClient.setMusic(false);
       play('good_job', ORANGE, 'star', `Great dancing, ${friendOrName(state.child.name)}!`);
     }, r.seconds * 1000);
   };
@@ -80,7 +85,13 @@ export function FunScreen() {
   };
   // Leaving the tab, or Stop Poco, ends the conversation - he should never be
   // left listening with nobody watching.
-  useEffect(() => () => pocoClient.setInteracting(false, 'play'), []);
+  useEffect(
+    () => () => {
+      pocoClient.setInteracting(false, 'play');
+      pocoClient.setMusic(false); // leaving the tab stops the music too
+    },
+    [],
+  );
   useEffect(() => {
     if (poco.stopId !== seenStop.current) setPlaying(false);
   }, [poco.stopId]);

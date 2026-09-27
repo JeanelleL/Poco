@@ -139,6 +139,10 @@ export class WsPocoClient implements PocoClient {
     this.send({ op: 'suggest' });
   }
 
+  setMusic(on: boolean, track?: string): void {
+    this.send({ op: 'music', play: on, track });
+  }
+
   setInteracting(on: boolean, mode: PocoMode = 'social'): void {
     this.send({ op: 'interacting', on, mode });
   }

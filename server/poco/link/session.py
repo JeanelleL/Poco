@@ -87,6 +87,7 @@ class Session:
         self.mode = mode
         self.asked = threading.Event()   # the adult pressed "Ask Poco"
         self.engaged = False             # play mode: in a conversation with him
+        self._listener = None            # so music can deafen the microphone
 
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -156,6 +157,7 @@ class Session:
                 self._coaches[self.mode] = Coach(effort=self.effort, mode=self.mode)
             detector = self._detector
             listener = SpeechListener(model_name=self.model, device=self.mic)
+            self._listener = listener
             ctx = SocialContext(
                 suggest_cooldown=(SOCIAL_QUIET if self.mode == "social" else 0.0)
             )

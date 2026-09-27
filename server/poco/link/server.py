@@ -48,6 +48,7 @@ class PocoServer:
         self.robot = robot
         self.voice = voice
         self.session_kwargs = session_kwargs
+        self.music = None   # set in run(), so --no-voice also means no music
         self.clients: set[ServerConnection] = set()
         self._loop: asyncio.AbstractEventLoop | None = None
         self.session = Session(on_event=self._on_event, robot=robot, voice=voice,
@@ -179,6 +180,24 @@ class PocoServer:
                     # The app's slider is 0..100; the matrix wants 0..255.
                     self.robot.set_brightness(round(brightness * 255 / 100))
 
+        elif op == "music":
+            # Started and stopped by a Fun routine. The listener is handed over
+            # so the microphone is deaf while it plays - otherwise Whisper
+            # transcribes the song and Poco answers the lyrics.
+            if self.music is None:
+                pass
+            elif msg.get("play"):
+                track = msg.get("track") or ""
+                listener = getattr(self.session, "_listener", None)
+                if self.music.play(track, listener=listener):
+                    print(f"  music: {track}", flush=True)
+                else:
+                    print(f"  music: no file for {track!r} - put one in "
+                          f"server/music/", flush=True)
+            else:
+                self.music.stop()
+                print("  music: stopped", flush=True)
+
         elif op == "suggest":
             # The adult asked for help now, so it skips the wait and the gap
             # between suggestions - but still not while the friend is talking.
@@ -189,6 +208,8 @@ class PocoServer:
         elif op == "stop":
             if self.robot is not None:
                 self.robot.stop()
+            if self.music is not None:
+                self.music.stop()
 
         elif op == "interacting":
             if msg.get("on"):
@@ -251,6 +272,10 @@ class PocoServer:
 
     async def run(self) -> None:
         self._loop = asyncio.get_running_loop()
+        if self.voice is not None:
+            from poco.voice import Music
+
+            self.music = Music()
         self.warm_up()
         built = (self.app_dir / "index.html").is_file()
         async with serve(self._handle, "", self.port,
