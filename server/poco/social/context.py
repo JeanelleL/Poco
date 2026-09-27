@@ -140,10 +140,31 @@ class SocialContext:
     # -- output ------------------------------------------------------------
 
     def ready_to_suggest(self, now: float | None = None) -> bool:
-        """Enough time has passed, and there is something new to react to."""
+        """Enough time has passed, and there is something new to react to.
+
+        Being spoken to skips the wait. The cooldown exists so Poco does not
+        chatter over a conversation, but somebody who just asked him a question
+        is owed an answer now - twenty seconds later is worse than never.
+        """
         now = time.monotonic() if now is None else now
-        return (self._turns_seen > self._turns_at_last_suggestion
-                and now - self._last_suggested >= self.suggest_cooldown)
+        if not self.turns or self._turns_seen <= self._turns_at_last_suggestion:
+            return False
+        if self.addressed(self.turns[-1].text):
+            return True
+        return now - self._last_suggested >= self.suggest_cooldown
+
+    @staticmethod
+    def addressed(text: str) -> bool:
+        """Does this sound like it was said TO Poco rather than near him?
+
+        Just his name, deliberately. Anything cleverer would have to guess, and
+        guessing wrong in the talkative direction is what the cooldown is there
+        to prevent. Someone who wants Poco's attention says his name - which is
+        also what a child is taught to do.
+        """
+        lowered = text.lower()
+        # Whisper hears "poco" as "pocko", "poko", "po co" often enough to matter.
+        return any(name in lowered for name in ("poco", "poko", "pocko", "po co"))
 
     def mark_suggested(self, now: float | None = None) -> None:
         self._last_suggested = time.monotonic() if now is None else now
