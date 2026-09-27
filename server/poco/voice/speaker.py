@@ -18,6 +18,19 @@ from dataclasses import dataclass
 import numpy as np
 import sounddevice as sd
 
+def find_output_device(name_hint: str | None):
+    """Resolve an output device by a fragment of its name."""
+    if not name_hint:
+        return None
+    for i, d in enumerate(sd.query_devices()):
+        if d["max_output_channels"] > 0 and name_hint.lower() in d["name"].lower():
+            return i
+    print(f"  [voice] no output device matching {name_hint!r}; using the default. "
+          f"Have: " + ", ".join(repr(d["name"]) for d in sd.query_devices()
+                                if d["max_output_channels"] > 0), flush=True)
+    return None
+
+
 VOICE_ID = "vGQNBgLaiM3EdZtxIiuY"
 MODEL = "eleven_v3"
 SAMPLE_RATE = 24000  # pcm_24000: raw int16, so it plays without a decoder
@@ -70,6 +83,7 @@ class Voice:
         stability: float = 0.5,
         similarity_boost: float = 0.75,
         use_tags: bool = True,
+        speaker: str | int | None = None,
     ):
         """
         style:     ElevenLabs' exaggeration control, 0..1. Pinned to the top.
@@ -79,6 +93,9 @@ class Voice:
                    flatten the tags out, which is the opposite of what a penguin
                    wants.
         use_tags:  prepend an emotion tag from EMOTION_TAGS.
+        speaker:   output device, by name fragment. Defaults to devices.SPEAKER
+                   rather than the system default, which drifts to whatever was
+                   plugged in last.
         """
         from elevenlabs import VoiceSettings
         from elevenlabs.client import ElevenLabs
@@ -90,6 +107,11 @@ class Voice:
             raise SystemExit(
                 "No ELEVENLABS_API_KEY. Put it in .env (gitignored) or export it."
             )
+        if speaker is None:
+            from poco.devices import SPEAKER
+            speaker = SPEAKER
+        self.speaker = (find_output_device(speaker) if isinstance(speaker, str)
+                        else speaker)
         self.client = ElevenLabs(api_key=os.environ["ELEVENLABS_API_KEY"])
         self.voice_id = voice_id
         self.model = model
@@ -154,7 +176,8 @@ class Voice:
             self.speaking = True
             first_audio = None
             played = 0
-            stream = sd.RawOutputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16")
+            stream = sd.RawOutputStream(samplerate=SAMPLE_RATE, channels=1,
+                                        dtype="int16", device=self.speaker)
             playing_since = None
             try:
                 stream.start()
