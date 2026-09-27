@@ -120,6 +120,9 @@ class Robot:
         # restarted, which is a poor way to lose a session.
         self._fails = 0
         self._reconnecting = threading.Lock()
+        # Bumped whenever something new is drawn, so a running animation knows
+        # it has been superseded and stops.
+        self._belly_gen = 0
 
     # -- state -------------------------------------------------------------
 
@@ -354,6 +357,36 @@ class Robot:
         self._moving.set()
         self._moves.submit(self._play, move)
 
+    def animate(self, mode: str, brightness: float = 1.0) -> bool:
+        """Play one of led_matrix's animated modes until something replaces it.
+
+        Runs on its own thread rather than the belly worker: these go on for as
+        long as they are left alone, and queueing one would block every other
+        draw behind it.
+        """
+        if self._matrix is None:
+            self._say(f"would animate {mode}")
+            return True
+        self._belly_gen += 1
+        gen = self._belly_gen
+        threading.Thread(target=self._animate, args=(mode, brightness, gen),
+                         daemon=True).start()
+        return True
+
+    def _animate(self, mode: str, brightness: float, gen: int) -> None:
+        try:
+            import modes
+
+            start = time.monotonic()
+            scale = max(0.0, min(1.0, brightness))
+            while gen == self._belly_gen and self._matrix is not None:
+                rows = modes.frame(mode, time.monotonic() - start)
+                self._matrix.draw([[tuple(int(c * scale) for c in px) for px in row]
+                                   for row in rows])
+                time.sleep(1 / 20)   # 20fps is plenty for a slow orb
+        except Exception as exc:
+            self._note_failure(f"animate {mode}", exc)
+
     def draw(self, pattern: list[str], color: str, brightness: float = 1.0) -> None:
         """Draw the face the app sent, rather than looking one up by name.
 
@@ -362,6 +395,7 @@ class Robot:
         just renders them. It also means the 8x8 faces are not maintained in a
         third place.
         """
+        self._belly_gen += 1   # stops any animation that is running
         self._belly.submit(self._draw_frame, list(pattern), color, brightness)
 
     @staticmethod

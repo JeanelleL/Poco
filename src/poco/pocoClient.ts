@@ -164,6 +164,9 @@ export function robotMove(m: Move): Pick<PocoAction, 'move' | 'mix'> {
   return isMix(m) ? { mix: m } : { move: toRobotMove(m) };
 }
 export interface BellyFrame {
+  /** The picture's name, when it has one. The robot animates some of these
+   *  (the breathing orb grows and shrinks) where the app can only show a still. */
+  name?: string;
   pattern: string[]; // 8 strings of 8 chars, '#' lit (the 8x8 belly matrix)
   color: string; // hex
   brightness: number; // 0..1

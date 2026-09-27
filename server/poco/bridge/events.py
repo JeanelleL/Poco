@@ -76,6 +76,17 @@ ORANGE = "#E8833A"  # Poco's default when the feeling is unknown
 # uses - spell out a colour per dot instead. Without these the robot treated
 # every letter as unlit and showed an empty belly where the app showed a
 # rainbow.
+# The app's pattern names that the robot can animate rather than draw still.
+# led_matrix/modes.py has a proper breathing orb - it grows over three seconds,
+# holds, and shrinks - and a counting one. The app can only send a single
+# static grid, so it sends the name too and the robot plays its own version.
+# The tiles say as much: the breaths tile's colour is commented "led_matrix
+# breathe orb, between its center and edge".
+ANIMATED = {
+    "orb": "breathe",
+    "five": "count",
+}
+
 DOT_COLORS = {
     "r": "#FF3B30",
     "y": "#FFC800",

@@ -32,7 +32,7 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.datastructures import Headers
 from websockets.http11 import Response
 
-from poco.bridge import SPEED, PocoEvent
+from poco.bridge import ANIMATED, SPEED, PocoEvent
 from poco.link.session import Session
 
 PORT = 8765
@@ -159,7 +159,13 @@ class PocoServer:
                 if move:
                     self.robot.perform(move)
                 belly = action.get("belly")
-                if belly and belly.get("pattern"):
+                named = (belly or {}).get("name")
+                if belly and named in ANIMATED:
+                    # The robot has a moving version of this picture; the app
+                    # can only send one still frame of it.
+                    self.robot.animate(ANIMATED[named],
+                                       float(belly.get("brightness", 1.0)))
+                elif belly and belly.get("pattern"):
                     # Draw what the app sent. It owns the faces, including the
                     # ones the adult drew, which have no name to look up.
                     self.robot.draw(belly["pattern"], belly.get("color", "#E8833A"),

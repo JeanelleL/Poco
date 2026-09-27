@@ -493,7 +493,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'play', gesture, color, pattern, say });
     pocoClient.perform({
       ...(gesture ? robotMove(gesture) : {}),
-      belly: { pattern: patternRows(pattern), color, brightness: ref.current.data.comfort.brightness / 100 },
+      belly: { name: typeof pattern === 'string' ? pattern : undefined, pattern: patternRows(pattern), color, brightness: ref.current.data.comfort.brightness / 100 },
       say,
     });
   }, []);
@@ -501,7 +501,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const showBelly = useCallback((pattern: Pattern, color: string) => {
     dispatch({ type: 'showBelly', pattern, color });
     pocoClient.perform({
-      belly: { pattern: patternRows(pattern), color, brightness: ref.current.data.comfort.brightness / 100 },
+      belly: { name: typeof pattern === 'string' ? pattern : undefined, pattern: patternRows(pattern), color, brightness: ref.current.data.comfort.brightness / 100 },
     });
   }, []);
 

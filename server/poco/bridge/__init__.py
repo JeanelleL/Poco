@@ -1,4 +1,5 @@
 from .events import (
+    ANIMATED,
     BELLY_FACES,
     DOT_COLORS,
     EMOTION_COLORS,
@@ -16,6 +17,7 @@ from .events import (
 )
 
 __all__ = [
+    "ANIMATED",
     "BELLY_FACES",
     "DOT_COLORS",
     "EMOTION_COLORS", "FEELING_MOVE", "ORANGE", "POCO_MOVES", "SLOW_MOVES",
