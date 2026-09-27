@@ -3,7 +3,7 @@ import { useApp } from '../app/AppProvider';
 import { CUSTOM_COLORS, type CustomEmotion } from '../poco/emotions';
 import { LedEditor } from '../poco/LedEditor';
 import { BLANK_ROWS, patternRows } from '../poco/patterns';
-import { isMix, toRobotMove } from '../poco/pocoClient';
+import { isMix, pocoClient, toRobotMove } from '../poco/pocoClient';
 import { ChunkyButton } from '../ui/ChunkyButton';
 import { MoveControls, TilePreview, type MoveChoice } from './MotionPicker';
 import { ConfirmButton } from '../ui/ConfirmButton';
@@ -49,6 +49,13 @@ export function TileEditor({ id, go }: { id?: string; go: Go }) {
     existing && !CUSTOM_COLORS.some((c) => c.hex === existing.color)
       ? [{ name: 'Original', hex: existing.color }, ...CUSTOM_COLORS]
       : CUSTOM_COLORS;
+
+  // Poco holds still while the tile is being made, so his idle drift isn't
+  // mistaken for the movement being chosen. Try on Poco still plays.
+  useEffect(() => {
+    pocoClient.holdStill(true);
+    return () => pocoClient.holdStill(false);
+  }, []);
 
   // The real Poco's belly mirrors the drawing as you make it.
   useEffect(() => {

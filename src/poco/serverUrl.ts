@@ -16,7 +16,7 @@ const DEFAULT_PORT = SERVER_PORT;
 
 /** The laptop's Bonjour name. Change this to whatever `scutil --get LocalHostName`
  *  prints on the machine running the server, or set it from the Connect step. */
-export const DEFAULT_HOST = 'MacBook-Air-5.local';
+export const DEFAULT_HOST = 'MacBook-Air-6.local';
 
 /** True when running as an installed app rather than a page the laptop served. */
 export function isInstalledApp(): boolean {

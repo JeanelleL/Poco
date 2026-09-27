@@ -248,6 +248,12 @@ export interface PocoClient {
   askForSuggestion(): void;
   /** Background music for a Fun routine. The robot looks up the track by id. */
   setMusic(on: boolean, track?: string): void;
+  /**
+   * Hold Poco still at home instead of his gentle idle drift, e.g. while a
+   * tile is being made, so the only movement is the one being tried. Tile
+   * movements still play. Off lets the drift carry on.
+   */
+  holdStill(on: boolean): void;
   /** Listen for what Poco reports. Returns an unsubscribe function. */
   onEvent(listener: (e: PocoEvent) => void): () => void;
 }
@@ -316,6 +322,10 @@ export class MockPocoClient implements PocoClient {
 
   setMusic(on: boolean, track?: string): void {
     console.debug('[poco] setMusic', on, track);
+  }
+
+  holdStill(on: boolean): void {
+    console.debug('[poco] holdStill', on);
   }
 
   setInteracting(on: boolean, mode: PocoMode = 'social'): void {

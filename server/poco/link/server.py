@@ -14,6 +14,7 @@ src/poco/pocoClient.ts, which is the source of truth for both.
                     {"op": "perform",    "action": {move|mix, belly, say|count}}
                     {"op": "settings",   "settings": {...}}
                     {"op": "stop"}
+                    {"op": "still",      "on": true|false}
                     {"op": "interacting","on": true|false}
 
     laptop -> app   {"op": "ready",  "servos": bool, "belly": bool, "leds": int}
@@ -134,6 +135,10 @@ class PocoServer:
         finally:
             self.clients.discard(connection)
             print(f"  app disconnected ({len(self.clients)} open)", flush=True)
+            if not self.clients and self.robot is not None:
+                # A hold is only for as long as someone is editing; an app that
+                # left mid-edit must not leave Poco frozen. It resends on reconnect.
+                self.robot.hold_still(False)
             if not self.clients and self.session.running:
                 # Nobody is watching. The app pauses Poco when its screen goes
                 # away, and a dropped Wi-Fi connection should do the same rather
@@ -219,6 +224,11 @@ class PocoServer:
             if self.session.running:
                 self.session.asked.set()
                 print("  asked for a suggestion", flush=True)
+
+        elif op == "still":
+            # No idle drift while the app is making a tile.
+            if self.robot is not None:
+                self.robot.hold_still(bool(msg.get("on")))
 
         elif op == "stop":
             self._counting.set()

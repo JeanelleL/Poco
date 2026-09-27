@@ -3,6 +3,7 @@
     uv run run_server.py                 # everything
     uv run run_server.py --no-robot      # no servos or belly
     uv run run_server.py --no-voice      # Poco thinks but stays silent
+    uv run run_server.py --llm claude    # Claude instead of Meta Muse Spark
 
 Open http://<this-laptop>.local:8765 on the iPad, on the same Wi-Fi. The app
 connects its WebSocket back to whatever host it loaded from, so there is no IP
@@ -10,6 +11,7 @@ to type in.
 """
 
 import argparse
+import os
 import asyncio
 import socket
 
@@ -26,6 +28,8 @@ def main() -> None:
     ap.add_argument("--memory", action="store_true",
                     help="remember the friend between sessions")
     ap.add_argument("--effort", default="low", help="low / medium / high")
+    ap.add_argument("--llm", default="muse", choices=("muse", "claude"),
+                    help="who decides what Poco does: Meta Muse Spark, or Claude")
     ap.add_argument("--mode", default="social", choices=("social", "play"),
                     help="what a bare interacting=true means; the app can say")
     ap.add_argument("--cooldown", type=float, default=0.0,
@@ -34,6 +38,8 @@ def main() -> None:
     ap.add_argument("--no-idle", action="store_true",
                     help="hold still between actions instead of drifting")
     args = ap.parse_args()
+    # Read by every Coach the session builds, however deep; see coach.PROVIDERS.
+    os.environ["POCO_LLM"] = args.llm
 
     robot = None
     if not args.no_robot:

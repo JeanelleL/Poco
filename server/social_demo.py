@@ -13,6 +13,7 @@ Press q or Esc to quit.
 """
 
 import argparse
+import os
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -59,6 +60,8 @@ def main() -> None:
     ap.add_argument("--no-llm", action="store_true",
                     help="build the context but do not call Claude")
     ap.add_argument("--effort", default="low", help="low / medium / high")
+    ap.add_argument("--llm", default="muse", choices=("muse", "claude"),
+                    help="who decides what Poco does: Meta Muse Spark, or Claude")
     ap.add_argument("--no-voice", action="store_true", help="print Poco's lines instead of speaking them")
     ap.add_argument("--no-robot", action="store_true",
                     help="do not drive the servos or belly")
@@ -72,6 +75,8 @@ def main() -> None:
     ap.add_argument("--stability", type=float, default=0.5,
                     help="v3: 0.0 creative / 0.5 natural / 1.0 robust")
     args = ap.parse_args()
+    # Read by every Coach the session builds, however deep; see coach.PROVIDERS.
+    os.environ["POCO_LLM"] = args.llm
 
     cap = cv2.VideoCapture(args.camera, cv2.CAP_AVFOUNDATION)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)

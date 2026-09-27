@@ -22,6 +22,8 @@ export class WsPocoClient implements PocoClient {
   private wanted = false; // whether we should be connected at all
   private attempt = 0;
   private retry: number | undefined;
+  /** Sent again after a reconnect: the server lets Poco drift when the app goes away. */
+  private still = false;
 
   /** What the laptop last said it had attached. */
   public servos = false;
@@ -58,6 +60,7 @@ export class WsPocoClient implements PocoClient {
     this.ws.onopen = () => {
       this.attempt = 0;
       this.send({ op: 'hello' });
+      if (this.still) this.send({ op: 'still', on: true });
     };
 
     this.ws.onmessage = (ev) => {
@@ -141,6 +144,11 @@ export class WsPocoClient implements PocoClient {
 
   setMusic(on: boolean, track?: string): void {
     this.send({ op: 'music', play: on, track });
+  }
+
+  holdStill(on: boolean): void {
+    this.still = on;
+    this.send({ op: 'still', on });
   }
 
   setInteracting(on: boolean, mode: PocoMode = 'social'): void {

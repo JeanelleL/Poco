@@ -9,6 +9,7 @@ dependencies = [
     "faster-whisper>=1.2.1",
     "hsemotion-onnx>=0.3.1",
     "numpy>=2.5.3",
+    "openai>=3.19.2",
     "opencv-python>=5.0.0.93",
     "pyserial>=3.5",
     "sounddevice>=0.5.6",

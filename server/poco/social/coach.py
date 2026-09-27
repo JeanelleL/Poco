@@ -1,6 +1,7 @@
 """Turns what Poco saw and heard into something to do about it.
 
-The context goes to Claude, which answers with a gesture, a belly colour, and
+The context goes to an LLM - Meta's Muse Spark by default, Claude with
+`--llm claude` - which answers with a gesture, a belly colour, and
 usually nothing to say. Saying nothing is the common case on purpose: Poco is
 standing next to someone who is already managing a live conversation, and an
 interruption costs them their place in it. A suggestion has to be worth that.
@@ -21,6 +22,16 @@ from pydantic import BaseModel, Field
 from poco.social.context import SocialContext
 
 MODEL = "claude-opus-5"
+
+# Meta's Muse Spark, through Meta Model API. It speaks the OpenAI protocol, so
+# the OpenAI SDK is pointed at it rather than at OpenAI.
+MUSE_MODEL = "muse-spark-1.3"
+MUSE_URL = "https://api.meta.ai/v1"
+
+# Which LLM a Coach uses when none is named. `--llm` on the entry points sets
+# this, which reaches the coaches the session builds without threading a
+# parameter through every layer between.
+PROVIDERS = ("muse", "claude")
 
 # The movements the servos can actually perform, from src/poco/pocoClient.ts
 # (and servos/gestures.py, where the keyframes live). Claude picks from this
@@ -223,25 +234,43 @@ def load_env(path: str | Path = ".env") -> None:
 
 
 class Coach:
-    """Asks Claude what Poco should do about the conversation so far."""
+    """Asks the LLM what Poco should do about the conversation so far."""
 
-    def __init__(self, model: str = MODEL, effort: str = "low",
-                 max_tokens: int = 1024, mode: str = "social"):
+    def __init__(self, model: str | None = None, effort: str = "low",
+                 max_tokens: int = 1024, mode: str = "social",
+                 provider: str | None = None):
         """
-        mode:   "social" to coach a conversation between two other people,
-                "play" for a conversation with Poco himself.
-        effort: how hard Claude thinks before answering. This runs inside a live
-                conversation, so it is traded against latency - "low" keeps the
-                round trip short. Raise it if the suggestions feel shallow.
+        mode:     "social" to coach a conversation between two other people,
+                  "play" for a conversation with Poco himself.
+        effort:   how hard the model thinks before answering. This runs inside
+                  a live conversation, so it is traded against latency - "low"
+                  keeps the round trip short. Raise it if the suggestions feel
+                  shallow. Both providers take the same words.
+        provider: "muse" or "claude"; defaults to $POCO_LLM, then muse.
         """
-        import anthropic
-
         load_env()
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            raise SystemExit(
-                "No ANTHROPIC_API_KEY. Put it in .env (gitignored) or export it."
-            )
-        self.client = anthropic.Anthropic()
+        self.provider = provider or os.environ.get("POCO_LLM", "muse")
+        if self.provider not in PROVIDERS:
+            raise SystemExit(f"Unknown LLM {self.provider!r}; use one of {PROVIDERS}")
+        if self.provider == "muse":
+            from openai import OpenAI
+
+            if not os.environ.get("MODEL_API_KEY"):
+                print("  [coach] no MODEL_API_KEY - using Claude instead", flush=True)
+                self.provider = "claude"
+            else:
+                self.client = OpenAI(base_url=MUSE_URL,
+                                     api_key=os.environ["MODEL_API_KEY"])
+                model = model or MUSE_MODEL
+        if self.provider == "claude":
+            import anthropic
+
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                raise SystemExit(
+                    "No ANTHROPIC_API_KEY. Put it in .env (gitignored) or export it."
+                )
+            self.client = anthropic.Anthropic()
+            model = model or MODEL
         self.model = model
         self.mode = mode if mode in MODES else "social"
         self.effort = effort
@@ -290,6 +319,31 @@ class Coach:
         )
 
         t0 = time.monotonic()
+        if self.provider == "muse":
+            try:
+                return self._ask_muse(prompt, t0)
+            except Exception as exc:
+                # Billing not configured, the key revoked, the endpoint down -
+                # from here they all look the same, and Poco going mute is a
+                # worse answer than a different model. Swaps over for the rest
+                # of the session rather than paying the timeout every turn.
+                print(f"  [coach] Muse unavailable ({type(exc).__name__}: "
+                      f"{str(exc)[:70]}); falling back to Claude", flush=True)
+                self._to_claude()
+        return self._ask_claude(prompt, t0)
+
+    def _to_claude(self) -> None:
+        """Switch this coach over to Claude, permanently."""
+        import anthropic
+
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise SystemExit("Muse is unavailable and there is no "
+                             "ANTHROPIC_API_KEY to fall back to.")
+        self.client = anthropic.Anthropic()
+        self.model = MODEL
+        self.provider = "claude"
+
+    def _ask_claude(self, prompt: str, t0: float) -> CoachResult:
         response = self.client.beta.messages.parse(
             model=self.model,
             max_tokens=self.max_tokens,
@@ -321,15 +375,75 @@ class Coach:
                 refused=True,
             )
 
-        suggestion = response.parsed_output
-        if suggestion.gesture not in GESTURES:
-            suggestion.gesture = "listen"  # never hand the robot a move it cannot do
-        if suggestion.belly not in BELLY_FACES:
-            suggestion.belly = "neutral"  # nor a face the matrix cannot draw
-        return CoachResult(
-            suggestion=suggestion,
-            latency=latency,
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
-            cached_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-        )
+        return _checked(response.parsed_output, latency,
+                        response.usage.input_tokens, response.usage.output_tokens,
+                        getattr(response.usage, "cache_read_input_tokens", 0) or 0)
+
+    def _ask_muse(self, prompt: str, t0: float) -> CoachResult:
+        """Muse Spark, asked for the same Suggestion as JSON.
+
+        Its structured output is a request rather than a guarantee the SDK
+        parses for us, so the reply is validated here and asked for once more
+        if it does not fit. Poco going mute because of a stray bracket is worse
+        than half a second's delay.
+        """
+        messages = [
+            {"role": "system", "content": MODES[self.mode]},
+            {"role": "user", "content": prompt},
+        ]
+        schema = {"name": "suggestion", "schema": Suggestion.model_json_schema()}
+        spent_in = spent_out = cached = 0
+        for attempt in range(2):
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                response_format={"type": "json_schema", "json_schema": schema},
+                # Muse is a reasoning model and bills its thinking as output,
+                # so the cap has to cover that as well as the answer.
+                max_completion_tokens=self.max_tokens * 4,
+                # "none" is rejected by Muse Spark; "minimal" is its floor.
+                reasoning_effort=self.effort,
+            )
+            usage = response.usage
+            if usage is not None:
+                spent_in += usage.prompt_tokens
+                spent_out += usage.completion_tokens
+                details = getattr(usage, "prompt_tokens_details", None)
+                cached += getattr(details, "cached_tokens", 0) or 0
+            message = response.choices[0].message
+            if getattr(message, "refusal", None):
+                return CoachResult(
+                    suggestion=Suggestion(say=None, gesture="listen",
+                                          belly="neutral", reason="declined to answer"),
+                    latency=time.monotonic() - t0, input_tokens=spent_in,
+                    output_tokens=spent_out, cached_tokens=cached, refused=True,
+                )
+            try:
+                suggestion = Suggestion.model_validate_json(message.content or "")
+                break
+            except ValueError as exc:
+                problem = str(exc).splitlines()[0]
+                messages += [
+                    {"role": "assistant", "content": message.content or ""},
+                    {"role": "user", "content": "That did not match the schema "
+                     f"({problem}). Answer again with only the JSON object."},
+                ]
+        else:
+            # Twice wrong: stay quiet and look attentive rather than crash the
+            # session or say something half-parsed.
+            suggestion = Suggestion(say=None, gesture="listen", belly="neutral",
+                                    reason="unreadable reply from the model")
+
+        return _checked(suggestion, time.monotonic() - t0, spent_in, spent_out, cached)
+
+
+def _checked(suggestion: Suggestion, latency: float, input_tokens: int,
+             output_tokens: int, cached_tokens: int) -> CoachResult:
+    """Never hand the robot a move it cannot do, nor a face it cannot draw."""
+    if suggestion.gesture not in GESTURES:
+        suggestion.gesture = "listen"
+    if suggestion.belly not in BELLY_FACES:
+        suggestion.belly = "neutral"
+    return CoachResult(suggestion=suggestion, latency=latency,
+                       input_tokens=input_tokens, output_tokens=output_tokens,
+                       cached_tokens=cached_tokens)

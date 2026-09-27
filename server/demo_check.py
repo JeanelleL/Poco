@@ -126,7 +126,7 @@ def check_keys_and_apis() -> None:
     from poco.social.coach import load_env
 
     load_env()
-    for name in ("ANTHROPIC_API_KEY", "ELEVENLABS_API_KEY"):
+    for name in ("MODEL_API_KEY", "ANTHROPIC_API_KEY", "ELEVENLABS_API_KEY"):
         report(OK if os.environ.get(name) else BAD, name.split("_")[0].lower() + " key",
                "set" if os.environ.get(name) else "missing from server/.env")
     try:
@@ -140,6 +140,22 @@ def check_keys_and_apis() -> None:
     except Exception as exc:
         report(BAD, "Claude reachable", f"{type(exc).__name__}: {str(exc)[:60]}",
                "check the key and the network")
+    try:
+        from openai import OpenAI
+
+        from poco.social.coach import MUSE_MODEL, MUSE_URL
+
+        t0 = time.monotonic()
+        OpenAI(base_url=MUSE_URL, api_key=os.environ.get("MODEL_API_KEY", "")
+               ).chat.completions.create(
+            model=MUSE_MODEL, max_completion_tokens=200, reasoning_effort="minimal",
+            messages=[{"role": "user", "content": "say ok"}])
+        report(OK, "Muse reachable", f"{time.monotonic() - t0:.1f}s")
+    except Exception as exc:
+        # 402 billing_not_configured means the key is fine but the Meta account
+        # has no payment method or credits - the fix is on the dashboard.
+        report(BAD, "Muse reachable", f"{type(exc).__name__}: {str(exc)[:60]}",
+               "check MODEL_API_KEY and billing at dev.meta.ai, or run --llm claude")
 
 
 def check_network() -> None:

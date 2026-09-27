@@ -121,6 +121,8 @@ class Robot:
         self.idle = idle
         self._idle_thread: threading.Thread | None = None
         self._idle_stop = threading.Event()
+        # The app asked for no idle drift for now (a tile is being made).
+        self._idle_hold = threading.Event()
         self._moves = ThreadPoolExecutor(max_workers=1, thread_name_prefix="servos")
         self._belly = ThreadPoolExecutor(max_workers=1, thread_name_prefix="belly")
         self._moving = threading.Event()
@@ -232,6 +234,17 @@ class Robot:
             self._idle_thread.join(timeout=IDLE_STEP * 3)
             self._idle_thread = None
 
+    def hold_still(self, on: bool) -> None:
+        """Pause the idle drift and hold Poco at home, or let it carry on.
+        Gestures still play either way."""
+        if on == self._idle_hold.is_set():
+            return
+        if on:
+            self._idle_hold.set()
+        else:
+            self._idle_hold.clear()
+        self._say("holding still" if on else "idle motion resumed")
+
     def _idle_loop(self) -> None:
         home = self._pm.home_pose()
         parts = {n: v for n, v in IDLE_MOTION.items() if n in home}
@@ -257,7 +270,20 @@ class Robot:
                               period, phase, False)                # drift inward
         moving = [n for n, v in plan.items() if abs(v[1]) > 5]
         self._say(f"idle motion on ({len(moving)} of {len(parts)} servos have room)")
+        held = False
         while not self._idle_stop.is_set():
+            if self._idle_hold.is_set() and not self._moving.is_set():
+                if not held:
+                    # Settle at home once, then wait. Only the drifting servos
+                    # moved, so only they go back.
+                    try:
+                        self._poco.move({n: plan[n][0] for n in plan}, HOME_S)
+                    except Exception as exc:
+                        self.last_error = f"idle: {exc}"
+                    held = True
+                time.sleep(0.15)
+                continue
+            held = False
             if self._moving.is_set():
                 # A real gesture owns the servos; it also ends at home, so the
                 # drift picks up again from wherever it left him.
