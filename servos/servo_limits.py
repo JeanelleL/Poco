@@ -7,8 +7,14 @@ not measured yet.
 """
 
 SERVOS = {
-    0: "left_leg",
-    1: "right_leg",
+    # Channels 0 and 1 are swapped relative to the silkscreen: the left foot's
+    # servo is plugged into the right foot's header and vice versa. The names
+    # follow the wiring, so "left_leg" means the left foot whichever socket it
+    # is in. LIMITS below were swapped to match - a stop belongs to the linkage,
+    # not to the channel number, and leaving them would drive each foot against
+    # the other one's stop.
+    0: "right_leg",
+    1: "left_leg",
     2: "head_turret",
     3: "right_arm_pitch",
     4: "left_arm_pitch",
@@ -21,8 +27,8 @@ SERVOS = {
 }
 
 LIMITS = {
-    0: {'stop1': 1400, 'stop2': 2335},
-    1: {'stop1': 2300, 'stop2': 1420},
+    0: {'stop1': 2300, 'stop2': 1420},   # right foot (see SERVOS)
+    1: {'stop1': 1400, 'stop2': 2335},   # left foot
     2: {'stop1': 640, 'stop2': 1550},
     3: {'stop1': 2500, 'stop2': 480},
     4: {'stop1': 560, 'stop2': 2590},
