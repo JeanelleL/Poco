@@ -1,1 +1,96 @@
-["UIInterfaceOrientationLandscapeLeft","UIInterfaceOrientationLandscapeRight"]
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CAPACITOR_DEBUG</key>
+	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Poco</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+
+	<!-- Landscape only, on iPad and iPhone. The layout is designed at 1180x820
+	     and has no portrait arrangement; allowing rotation only lets the adult
+	     turn the iPad into a broken screen. -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+
+	<!-- Reaching the laptop.
+	     Served from the laptop in a browser, the app connected back to whatever
+	     host it loaded from. Installed, it loads from capacitor://localhost and
+	     has to be told where Poco's laptop is - by Bonjour name, which survives
+	     the Wi-Fi handing out a new address.
+
+	     iOS 14+ requires both of these for that to work at all, and fails
+	     SILENTLY without them: the prompt below is shown once, and
+	     NSAllowsLocalNetworking permits ws:// and http:// to the local network
+	     WITHOUT weakening transport security for the public internet - which is
+	     what NSAllowsArbitraryLoads would do. Do not use that instead. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Poco needs your local network to find the laptop he is plugged into. Nothing is sent over the internet.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- Needed once the laptop advertises itself for discovery; harmless until
+	     then. Without it, browsing finds nothing even with permission granted. -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_poco._tcp</string>
+	</array>
+</dict>
+</plist>
