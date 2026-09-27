@@ -249,6 +249,10 @@ class Session:
             # own voice is in the room.
             self.voice.say_async(suggestion.say, emotion=suggestion.belly,
                                  listener=listener)
+        if suggestion.say and ctx is not None:
+            # Poco's own turn goes into the history too, so the next thing said
+            # to him has something to refer back to.
+            ctx.add_poco_line(suggestion.say)
         print(f"  [{suggestion.kind}] {suggestion.say or '(quiet)'}"
               f"  -> {suggestion.gesture} / {suggestion.belly}", flush=True)
         # PocoEvent.feeling is "the emotion of the person Poco is facing", so it

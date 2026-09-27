@@ -42,6 +42,7 @@ class Turn:
     emotion_from: str | None = None  # where the face started...
     emotion_to: str | None = None  # ...and ended, when it moved
     face_seen: float = 0.0  # fraction of the utterance with a face in view
+    by: str = "them"  # "them" or "poco" - who said it
     timestamp: float = field(default_factory=time.time)
 
     @property
@@ -54,6 +55,8 @@ class Turn:
 
     def describe(self) -> str:
         """One line, as the LLM should read it."""
+        if self.by == "poco":
+            return f'YOU said: "{self.text}"'
         if self.emotion is None:
             return f'(face not visible) "{self.text}"'
         if self.shifted:
@@ -113,6 +116,19 @@ class SocialContext:
         cutoff = now - TRACK_SECONDS
         while self._track and self._track[0][0] < cutoff:
             self._track.popleft()
+
+    def add_poco_line(self, text: str) -> None:
+        """Record what Poco himself just said.
+
+        Without this the history is one-sided: Poco sees what was said TO him
+        and nothing he said back, so "why?" or "do it again" refer to nothing
+        and he answers as though the exchange had not happened.
+        """
+        if not text:
+            return
+        now = time.monotonic()
+        self.turns.append(Turn(text=text, start=now, end=now,
+                               speech_confidence=1.0, by="poco"))
 
     def add_utterance(self, utterance: Utterance) -> Turn:
         """Pair an utterance with the face that was on screen while it was said."""
