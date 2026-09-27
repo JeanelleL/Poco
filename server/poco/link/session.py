@@ -158,15 +158,24 @@ class Session:
                         "at": time.time(),
                     })
                     del self.heard[:-12]
-                    if ctx.ready_to_suggest(now) and pending is None:
-                        self.thinking = True
-                        pending = pool.submit(self._think, coach, ctx, memory, now)
-                        ctx.mark_suggested(now)
 
+                # Collect the finished answer first, so the check below can use
+                # the slot it frees on this same frame.
                 if pending is not None and pending.done():
                     self._deliver(pending, listener)
                     self.thinking = False
                     pending = None
+
+                # Checked every frame, not just when an utterance lands.
+                # Nested in the `if utterance` above, anything said while Poco
+                # was still thinking about the previous line was added to the
+                # conversation and then never asked about - no call was made
+                # for it, and nothing retried. Two questions in a row meant the
+                # second was answered late, with the answer to the first.
+                if pending is None and ctx.ready_to_suggest(now):
+                    self.thinking = True
+                    pending = pool.submit(self._think, coach, ctx, memory, now)
+                    ctx.mark_suggested(now)
 
                 # Counts down to when Poco may next speak. Without it, the
                 # cooldown looks identical to Poco being broken - it is 20s by
@@ -219,6 +228,8 @@ class Session:
             # own voice is in the room.
             self.voice.say_async(suggestion.say, emotion=suggestion.belly,
                                  listener=listener)
+        print(f"  [{suggestion.kind}] {suggestion.say or '(quiet)'}"
+              f"  -> {suggestion.gesture}", flush=True)
         self.on_event(event_for(suggestion.belly, suggestion.say, suggestion.reason))
 
     def telemetry(self) -> dict:
