@@ -26,6 +26,15 @@ from poco.vision import EmotionDetector
 
 WARMUP_SECONDS = 2.5
 
+# Wait this long after someone stops talking before asking Claude anything.
+# The endpointer cuts at any pause, so "Poco, can you..." and "...make a frowny
+# face" arrive as two utterances - and with no cooldown each got its own answer,
+# which is why asking twice produced four replies. Waiting a beat merges them
+# into the one question that was actually asked. It costs this much latency and
+# is worth it: answering half a sentence twice is slower in practice than
+# answering the whole one once.
+SETTLE_SECONDS = 0.6
+
 
 class Session:
     """One run of Social Mode."""
@@ -101,6 +110,7 @@ class Session:
         cap = listener = None
         pool = ThreadPoolExecutor(max_workers=1)
         pending: Future | None = None
+        last_heard = 0.0
         try:
             cap = cv2.VideoCapture(self.camera, cv2.CAP_AVFOUNDATION)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -158,6 +168,7 @@ class Session:
                         "at": time.time(),
                     })
                     del self.heard[:-12]
+                    last_heard = now
 
                 # Collect the finished answer first, so the check below can use
                 # the slot it frees on this same frame.
@@ -172,7 +183,10 @@ class Session:
                 # conversation and then never asked about - no call was made
                 # for it, and nothing retried. Two questions in a row meant the
                 # second was answered late, with the answer to the first.
-                if pending is None and ctx.ready_to_suggest(now):
+                if (pending is None
+                        and last_heard
+                        and now - last_heard >= SETTLE_SECONDS
+                        and ctx.ready_to_suggest(now)):
                     self.thinking = True
                     pending = pool.submit(self._think, coach, ctx, memory, now)
                     ctx.mark_suggested(now)

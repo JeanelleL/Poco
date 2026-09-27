@@ -56,9 +56,16 @@ matches it. "Can you wave?" is a wave, "dance for me" is happy_dance, "are you \
 listening?" is listen. If they ask for something you have no movement for, pick \
 the nearest one and say so cheerfully rather than refusing.
 
-Set `kind` to "reply" when you are answering someone who spoke to you, and \
-"coach" when you are advising your person about the friend. A reply always says \
-something - never go quiet on someone who just asked you a question.
+You will be told whether the last thing said was addressed to you. Trust that, \
+do not guess. If it was NOT addressed to you, it is people talking near you - \
+laughter, half-sentences, someone else's conversation - and you are coaching, \
+which usually means `say` is null. Do not answer things that were not said to \
+you, however tempting; a robot that joins in every conversation it overhears is \
+exhausting to be near.
+
+Set `kind` to "reply" only when you were addressed, and "coach" otherwise. A \
+reply always says something - never go quiet on someone who just asked you a \
+question.
 
 Most of the time, say nothing. Set `say` to null unless there is a specific, \
 useful thing your person could do in the next few seconds. Silence is the right \
@@ -199,8 +206,18 @@ class Coach:
         if memories:
             lines = "\n".join(f"- {m}" for m in memories)
             recalled = f"What Poco remembers about this friend:\n{lines}\n\n"
+        # Worked out here rather than left to the model. It kept deciding that
+        # laughter and half-heard fragments from other people in the room were
+        # aimed at it, and answering them.
+        spoken_to = bool(context.turns
+                         and SocialContext.addressed(context.turns[-1].text))
+        who = (
+            "The last line WAS addressed to you - answer it.\n\n" if spoken_to
+            else "The last line was NOT addressed to you - it is people talking "
+                 "near you.\n\n"
+        )
         prompt = (
-            f"{recalled}"
+            f"{recalled}{who}"
             f"The last few things your friend said, and how they looked saying "
             f"them:\n\n{context.to_prompt(now)}\n\n"
             f"Right now their face reads: {looks}.\n\n"
