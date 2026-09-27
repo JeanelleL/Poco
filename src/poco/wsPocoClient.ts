@@ -7,7 +7,7 @@
 // plain socket to a device on the LAN, which is why the app is served over
 // http from the laptop.
 
-import type { PocoAction, PocoClient, PocoEvent, PocoSettings } from './pocoClient';
+import type { PocoAction, PocoClient, PocoEvent, PocoMode, PocoSettings } from './pocoClient';
 import { serverUrl } from './serverUrl';
 
 /** How long to wait for the laptop before giving up on connect(). */
@@ -135,8 +135,8 @@ export class WsPocoClient implements PocoClient {
     this.send({ op: 'stop' });
   }
 
-  setInteracting(on: boolean): void {
-    this.send({ op: 'interacting', on });
+  setInteracting(on: boolean, mode: PocoMode = 'social'): void {
+    this.send({ op: 'interacting', on, mode });
   }
 
   onEvent(listener: (e: PocoEvent) => void): () => void {

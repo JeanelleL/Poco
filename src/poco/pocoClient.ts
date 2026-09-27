@@ -191,6 +191,9 @@ export interface PocoAction {
  * Mode). The app shows it in the teacher's log: what Poco noticed, what they
  * did, and why.
  */
+/** Which job Poco is doing while he listens. */
+export type PocoMode = 'social' | 'play';
+
 export interface PocoEvent {
   type: 'noticed';
   /** Built-in emotion id of the person Poco is facing, e.g. "happy". */
@@ -211,8 +214,17 @@ export interface PocoClient {
   perform(action: PocoAction): void;
   /** Cut any gesture or speech short and hold still. */
   stop(): void;
-  /** Switch Interacting Mode on or off. Poco watches and responds on their own (and decides when to talk). */
-  setInteracting(on: boolean): void;
+  /**
+   * Switch Poco's listening on or off. Poco watches and responds on their own
+   * (and decides when to talk).
+   *
+   * 'social' is Social Mode: Poco faces the person the child is talking WITH
+   * and quietly guides the child. Nothing said there is said to Poco.
+   * 'play' is Fun Mode's Play with Poco: a one-to-one conversation, where
+   * everything is said to him and he always answers.
+   * Omitted means 'social', which is what this did before modes existed.
+   */
+  setInteracting(on: boolean, mode?: PocoMode): void;
   /** Listen for what Poco reports. Returns an unsubscribe function. */
   onEvent(listener: (e: PocoEvent) => void): () => void;
 }
@@ -275,8 +287,8 @@ export class MockPocoClient implements PocoClient {
 
   // Pretends Poco noticed a feeling every 5–9 s, saying something about it
   // roughly half the time (the real robot filters its own chatter), with a reason either way.
-  setInteracting(on: boolean): void {
-    console.debug('[poco] setInteracting', on);
+  setInteracting(on: boolean, mode: PocoMode = 'social'): void {
+    console.debug('[poco] setInteracting', on, mode);
     window.clearTimeout(this.interactTimer);
     if (!on) return;
     const next = () => {

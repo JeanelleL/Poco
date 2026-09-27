@@ -169,3 +169,18 @@
 .fun-card.is-on .fun-card-meta {
   color: var(--orange-text);
 }
+
+/* Play with Poco: he listens and answers, instead of running a routine. */
+.fun-play {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 28px;
+  padding: 20px 24px;
+  margin-bottom: 28px;
+}
+.fun-play-text { flex: 1; }
+.fun-play .fun-section-title { margin: 0 0 4px; }
+.fun-play .helper { margin: 0; }

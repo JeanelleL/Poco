@@ -3,7 +3,7 @@ import { useApp } from '../app/AppProvider';
 import { SPEED_MULTIPLIER, friendOrName } from '../onboarding/stepMeta';
 import { ORANGE } from '../poco/emotions';
 import { LedMatrix } from '../poco/LedMatrix';
-import { moveInfo } from '../poco/pocoClient';
+import { moveInfo, pocoClient } from '../poco/pocoClient';
 import { ChunkyButton } from '../ui/ChunkyButton';
 import { FUN_ROUTINES, type FunRoutine, type FunStep } from './funRoutines';
 import './fun.css';
@@ -41,6 +41,7 @@ export function FunScreen() {
   const stepMs = (s: FunStep) => (s.ms ?? (s.move ? moveInfo(s.move).ms : 3000)) * speed;
 
   const start = (r: FunRoutine) => {
+    if (playing) setPlay(false); // a routine takes him back from the conversation
     clearTimers();
     setActive({ id: r.id, runId: Date.now() });
     setMove(0);
@@ -68,6 +69,21 @@ export function FunScreen() {
     setMove(i);
     perform(r.steps[i]);
   };
+
+  // Play with Poco: he listens and talks back, rather than running a routine.
+  const [playing, setPlaying] = useState(false);
+  const setPlay = (on: boolean) => {
+    setPlaying(on);
+    pocoClient.setInteracting(on, 'play');
+    if (on) clearTimers();
+    if (on) setActive(null); // a routine and a conversation cannot both have him
+  };
+  // Leaving the tab, or Stop Poco, ends the conversation - he should never be
+  // left listening with nobody watching.
+  useEffect(() => () => pocoClient.setInteracting(false, 'play'), []);
+  useEffect(() => {
+    if (poco.stopId !== seenStop.current) setPlaying(false);
+  }, [poco.stopId]);
 
   const current = active && FUN_ROUTINES.find((r) => r.id === active.id);
   const dances = FUN_ROUTINES.filter((r) => r.kind === 'dance');
@@ -109,6 +125,20 @@ export function FunScreen() {
           </div>
         </section>
       )}
+
+      <section className="fun-play">
+        <div className="fun-play-text">
+          <h2 className="fun-section-title">Play with Poco</h2>
+          <p className="helper">
+            {playing
+              ? `Poco is listening. ${friendOrName(state.child.name)} can ask him to wave, dance or pull a face.`
+              : `Turn this on and ${friendOrName(state.child.name)} can talk to Poco, and he talks back.`}
+          </p>
+        </div>
+        <ChunkyButton variant={playing ? 'secondary' : 'primary'} onClick={() => setPlay(!playing)}>
+          {playing ? 'Stop listening' : 'Start listening'}
+        </ChunkyButton>
+      </section>
 
       <FunSection title="Dance breaks" routines={dances} active={active} onStart={start} />
       <FunSection title="Games" routines={games} active={active} onStart={start} />
