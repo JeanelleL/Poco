@@ -220,6 +220,84 @@ class Robot:
         self._moving.set()
         self._moves.submit(self._play, move)
 
+    def draw(self, pattern: list[str], color: str, brightness: float = 1.0) -> None:
+        """Draw the face the app sent, rather than looking one up by name.
+
+        The app owns the faces - including ones the adult drew themselves, which
+        have no name to look up - so it sends the grid and the colour and this
+        just renders them. It also means the 8x8 faces are not maintained in a
+        third place.
+        """
+        self._belly.submit(self._draw_frame, list(pattern), color, brightness)
+
+    @staticmethod
+    def _to_led(color: str, brightness: float) -> tuple[int, int, int]:
+        """Screen hex -> raw LED value.
+
+        emotions.ts stores each colour already gamma-corrected for a screen
+        (255 * (led/255) ** (1/2.2)), so the robot side has to undo exactly that
+        or every face comes out washed out and pale. Checked against
+        led_matrix/emotions.py: happy round-trips to (255,159,0) against its
+        (255,160,0), sad to (0,59,255) against (0,60,255).
+
+        Neutral is the one that does not, landing at (88,88,79) instead of
+        (150,150,140), because emotions.ts deliberately darkens it so it reads
+        on a white screen. That makes the neutral face dimmer on the robot than
+        intended. If that matters, the fix belongs in emotions.ts - a separate
+        LED colour beside the screen one - not in a special case here.
+        """
+        h = color.lstrip("#")
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        try:
+            parts = [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+        except (ValueError, IndexError):
+            parts = [232, 131, 58]  # Poco's orange, if the hex is unreadable
+        scale = max(0.0, min(1.0, brightness))
+        return tuple(int(255 * (v / 255) ** 2.2 * scale) for v in parts)
+
+    def _draw_frame(self, pattern: list[str], color: str, brightness: float) -> None:
+        try:
+            if self._matrix is None:
+                lit = sum(row.count("#") for row in pattern)
+                self._say(f"would draw {lit}-pixel face in {color}")
+                return
+            on = self._to_led(color, brightness)
+            off = (0, 0, 0)
+            h, w = self._matrix.height, self._matrix.width
+            frame = [
+                [on if x < len(pattern[y]) and pattern[y][x] == "#" else off
+                 for x in range(w)]
+                if y < len(pattern) else [off] * w
+                for y in range(h)
+            ]
+            self._matrix.draw(frame)
+        except Exception as exc:
+            self.last_error = f"draw: {exc}"
+            self._say(f"draw failed: {exc}")
+
+    def set_brightness(self, value: int) -> None:
+        """0..255 for the belly. The app's comfort slider is 0..100."""
+        self.brightness = max(0, min(255, int(value)))
+        if self._matrix is not None:
+            self._belly.submit(self._set_brightness, self.brightness)
+
+    def _set_brightness(self, value: int) -> None:
+        try:
+            self._matrix.set_brightness(value)
+        except Exception as exc:
+            self._say(f"brightness failed: {exc}")
+
+    def set_speed(self, speed: float, amount: float | None = None) -> None:
+        """Comfort speed. Poco reads these per gesture, so this takes effect on
+        the next one rather than needing the link rebuilt."""
+        self.speed = speed
+        if amount is not None:
+            self.amount = amount
+        if self._poco is not None:
+            self._poco.speed = self.speed
+            self._poco.amount = self.amount
+
     def show(self, feeling: str) -> None:
         """Set the belly face. Returns immediately."""
         self._belly.submit(self._draw, feeling)

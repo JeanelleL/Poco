@@ -10,7 +10,9 @@
 // every time the Wi-Fi hands out a new lease and a name does not.
 
 const STORAGE_KEY = 'poco.server.v1';
-const DEFAULT_PORT = 8765;
+/** The Python server's port: it serves the built app and the socket on one. */
+export const SERVER_PORT = 8765;
+const DEFAULT_PORT = SERVER_PORT;
 
 /** The laptop's Bonjour name. Change this to whatever `scutil --get LocalHostName`
  *  prints on the machine running the server, or set it from the Connect step. */

@@ -1,3 +1,6 @@
+import { SERVER_PORT } from './serverUrl';
+import { WsPocoClient } from './wsPocoClient';
+
 // The UI only talks to Poco through this interface. The mock logs what it
 // would send; a WsPocoClient will later send the same objects as JSON to
 // ws://<laptop-ip>:8765.
@@ -299,4 +302,25 @@ export class MockPocoClient implements PocoClient {
   }
 }
 
-export const pocoClient: PocoClient = new MockPocoClient();
+/**
+ * The real Poco when the laptop served this page, the mock otherwise.
+ *
+ * `npm run dev` (vite on 5173) keeps the mock, so the app can be worked on and
+ * demonstrated with no robot and no laptop server. The Python server serves the
+ * built app on 8765 and drives the real one. Override with `?real` or `?mock`.
+ */
+function chooseClient(): PocoClient {
+  const q = new URLSearchParams(window.location.search);
+  if (q.has('mock')) return new MockPocoClient();
+  const servedByLaptop = window.location.port === String(SERVER_PORT);
+  if (q.has('real') || servedByLaptop) {
+    const real = new WsPocoClient();
+    // Connect eagerly so Step6Connect finds it already up; a failure here just
+    // means the retry loop keeps trying quietly.
+    void real.connect().catch((e) => console.debug('[poco]', e.message));
+    return real;
+  }
+  return new MockPocoClient();
+}
+
+export const pocoClient: PocoClient = chooseClient();
