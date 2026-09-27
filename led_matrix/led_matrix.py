@@ -52,7 +52,8 @@ def _rgb(color):
 
 class LedMatrix:
     def __init__(self, port=None, width=8, height=8, baud=500000, brightness=30,
-                 column_major=True, serpentine=True, flip_x=False, flip_y=False):
+                 column_major=True, serpentine=True, flip_x=False, flip_y=False,
+                 ser=None, lock=None):
         """
         port:        e.g. "COM3" (Windows) or "/dev/cu.usbmodem1101" (Mac). None = auto-detect.
         width/height: matrix size. width * height must equal NUM_LEDS in the sketch.
@@ -74,8 +75,18 @@ class LedMatrix:
         self._buf = bytearray(self.num_leds * 3)
         self._shown = bytes(self.num_leds * 3)   # what's currently on the LEDs, for fades
 
-        self.ser = serial.Serial(port or find_arduino_port(), baud, timeout=1)
-        self._connect()
+        # `ser` adopts an already-open connection, for when the belly and the
+        # servos are the same board. The opener has already taken the board's
+        # reset and its READY byte, so the handshake is not repeated. `lock` is
+        # shared with the servo link so a servo command cannot arrive in the
+        # middle of a frame - show() disables interrupts and the byte would
+        # simply be lost.
+        self._lock = lock
+        if ser is not None:
+            self.ser = ser
+        else:
+            self.ser = serial.Serial(port or find_arduino_port(), baud, timeout=1)
+            self._connect()
         self.set_brightness(brightness)
 
     # ---------- connection ----------
@@ -103,6 +114,12 @@ class LedMatrix:
             )
 
     def _send(self, packet):
+        if self._lock is not None:
+            with self._lock:
+                return self._send_locked(packet)
+        return self._send_locked(packet)
+
+    def _send_locked(self, packet):
         self.ser.write(packet)
         if self.ser.read(1) != ACK:
             # Glitch: let the Arduino drain, clear our side, and carry on.

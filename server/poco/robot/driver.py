@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -69,6 +70,9 @@ class Robot:
         self.brightness = brightness
         self.quiet = quiet
 
+        self._board = None
+        self._board_port: str | None = None
+        self._io = threading.Lock()  # shared: one port, two protocols
         self._poco = None
         self._link = None
         self._poses: dict = {}
@@ -107,11 +111,12 @@ class Robot:
         Never raises: a missing robot is the normal case during development, and
         it should not take the conversation down with it.
         """
-        # Belly first, deliberately. ServoLink auto-detects by USB vendor id,
-        # so with only the matrix board plugged in it would pick that port, talk
-        # servo protocol at the wrong baud rate and reset the board mid-face.
-        # Connecting the belly first leaves its port held open, so the servo
-        # probe skips it instead.
+        # Poco is one Arduino running poco_firmware.ino, which answers both
+        # the servo commands and the belly commands on one port. So the port is
+        # opened once here and handed to both halves, with a lock they share -
+        # two independently-opened connections to the same device would read
+        # each other's replies.
+        self._open_board()
         self._connect_belly()
         self._connect_servos()
         if not (self.servos_ready or self.belly_ready):
@@ -122,23 +127,14 @@ class Robot:
         try:
             import poco_motion as pm
             from gestures import GESTURES
-            from servo_link import ServoLink, find_ports
+            from servo_link import ServoLink
 
-            port = self.servo_port
-            if port is None:
-                # Auto-detect picks any Arduino-looking port, and on a one-board
-                # setup that is the belly. Opening it talks the wrong protocol
-                # at the wrong baud rate and resets the board mid-face, so the
-                # belly's port is taken off the table rather than probed.
-                taken = self._belly_port()
-                options = [p.device for p in find_ports() if p.device != taken]
-                if not options:
-                    raise RuntimeError(
-                        "no free Arduino port"
-                        + (f" ({taken} is the belly)" if taken else "")
-                    )
-                port = options[0]
-            self._link = ServoLink(port)
+            if self._board is None:
+                raise RuntimeError("no board")
+            # Adopts the connection opened in _open_board, sharing its lock with
+            # the belly. Opening the port a second time would leave two readers
+            # on one device, each swallowing the other's replies.
+            self._link = ServoLink(ser=self._board, lock=self._io)
             self._poco = pm.Poco(self._link, speed=self.speed, amount=self.amount)
             self._gestures = GESTURES
             self._poses = pm.load_poses()
@@ -157,6 +153,38 @@ class Robot:
             self.last_error = f"servos: {exc}"
             self._say(f"no servos ({type(exc).__name__}: {exc})")
 
+    def _open_board(self) -> None:
+        """Open the one board and wait out its boot, once."""
+        import serial
+        from servo_link import BAUD, find_ports
+
+        port = self.servo_port or self.led_port
+        if port is None:
+            found = find_ports()
+            if not found:
+                self._say("no Arduino-looking serial port")
+                return
+            port = found[0].device
+        try:
+            self._board = serial.Serial(port, BAUD, timeout=2)
+            # Opening resets the Uno. Read its banner rather than sleeping a
+            # fixed interval: the servo half prints READY when the PCA9685 has
+            # been probed, and that probe is the thing worth waiting for.
+            deadline = time.monotonic() + 12
+            while time.monotonic() < deadline:
+                line = self._board.readline().decode("ascii", "replace").strip()
+                if not line:
+                    continue
+                if line.startswith("#"):
+                    self._say(line[1:].strip())
+                if line == "READY":
+                    break
+            self._board_port = port
+            self._say(f"board on {port}")
+        except Exception as exc:
+            self.last_error = f"board: {exc}"
+            self._say(f"no board ({type(exc).__name__}: {exc})")
+
     def _belly_port(self) -> str | None:
         try:
             return self._matrix.ser.port if self._matrix is not None else None
@@ -168,7 +196,10 @@ class Robot:
             from emotions import show_face
             from led_matrix import LedMatrix
 
-            self._matrix = LedMatrix(port=self.led_port, brightness=self.brightness)
+            if self._board is None:
+                raise RuntimeError("no board")
+            self._matrix = LedMatrix(ser=self._board, lock=self._io,
+                                     brightness=self.brightness)
             self._show_face = show_face
             self._say("belly connected")
         except Exception as exc:
@@ -248,10 +279,10 @@ class Robot:
         self._belly.shutdown(wait=True)
         self.stop()
         try:
-            if self._matrix is not None:
-                self._matrix.close()
-            if self._link is not None:
-                self._link.close()
+            # One shared connection, so it is closed once here rather than by
+            # each half in turn.
+            if self._board is not None:
+                self._board.close()
         except Exception:
             pass
 

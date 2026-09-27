@@ -20,7 +20,10 @@ from dataclasses import dataclass
 import serial
 from serial.tools import list_ports
 
-BAUD = 115200
+# 500000, matching the belly half of poco_firmware.ino - they share one board
+# and therefore one baud rate. It is also the more accurate of the two on a
+# 16 MHz AVR: 500000 divides exactly, 115200 carries about 2% clock error.
+BAUD = 500000
 
 # USB vendor IDs seen on Uno boards and the common clones. Genuine Arduino
 # is 0x2341; clones ship a CH340 (0x1A86), an FTDI (0x0403), or a
@@ -60,13 +63,26 @@ def find_ports() -> list[Port]:
 
 
 class ServoLink:
-    def __init__(self, port: str | None = None, timeout: float = 2.0):
+    def __init__(self, port: str | None = None, timeout: float = 2.0,
+                 ser=None, lock=None):
         """Open the link. Pass port=None to autodetect.
 
         Opening the port resets the Uno (the USB adapter toggles DTR), so
         the constructor waits for the firmware's READY line rather than
         sleeping a fixed interval and hoping.
+
+        `ser` adopts an already-open connection instead, for when the servos
+        and the belly are the same board: whoever opened it has already taken
+        the reset and the READY line, so neither happens again here. `lock` is
+        then shared with the belly so a servo command cannot land in the middle
+        of a 192-byte frame.
         """
+        self._lock = lock
+        if ser is not None:
+            self.ser = ser
+            self.port = getattr(ser, "port", "shared")
+            self.banner = []
+            return
         if port is None:
             candidates = find_ports()
             if not candidates:
@@ -109,6 +125,12 @@ class ServoLink:
 
     def command(self, line: str) -> str:
         """Send one command, return its OK payload. Raises on ERR."""
+        if self._lock is not None:
+            with self._lock:
+                return self._command(line)
+        return self._command(line)
+
+    def _command(self, line: str) -> str:
         self.ser.reset_input_buffer()
         self.ser.write((line + "\n").encode())
         self.ser.flush()
