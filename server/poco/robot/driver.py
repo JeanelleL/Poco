@@ -373,14 +373,33 @@ class Robot:
                          daemon=True).start()
         return True
 
+    @staticmethod
+    def _breath(t: float) -> float:
+        """How full the breath is at time t, on the body's timing.
+
+        modes._breath has the belly's own rhythm. This is the gesture's, so the
+        orb is at its biggest exactly when Poco is at the top of his breath.
+        """
+        import modes
+
+        from poco.bridge import BREATHE_IN, BREATHE_OUT
+
+        p = t % (BREATHE_IN + BREATHE_OUT)
+        if p < BREATHE_IN:
+            return modes._ease(p / BREATHE_IN)
+        return 1.0 - modes._ease((p - BREATHE_IN) / BREATHE_OUT)
+
     def _animate(self, mode: str, brightness: float, gen: int) -> None:
         try:
             import modes
 
             start = time.monotonic()
             scale = max(0.0, min(1.0, brightness))
+            palette = modes.MODES["breathe"]["palette"] if mode == "breathe" else None
             while gen == self._belly_gen and self._matrix is not None:
-                rows = modes.frame(mode, time.monotonic() - start)
+                t = time.monotonic() - start
+                rows = (modes._orb(self._breath(t), palette) if palette
+                        else modes.frame(mode, t))
                 self._matrix.draw([[tuple(int(c * scale) for c in px) for px in row]
                                    for row in rows])
                 time.sleep(1 / 20)   # 20fps is plenty for a slow orb

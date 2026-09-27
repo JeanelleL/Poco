@@ -87,6 +87,16 @@ ANIMATED = {
     "five": "count",
 }
 
+# The breathe gesture in servos/gestures.py: four seconds filling, six emptying,
+# three times over. The belly has its own rhythm - three in, half a second held,
+# three out, half a second resting - so left alone the orb and the body drift
+# apart, and by the end of a thirty second exercise the orb is emptying while
+# Poco is still breathing in. Which is worse than no orb at all, since a child
+# is being asked to breathe along with it. These are the body's numbers, and
+# the belly follows them.
+BREATHE_IN = 4.0
+BREATHE_OUT = 6.0
+
 DOT_COLORS = {
     "r": "#FF3B30",
     "y": "#FFC800",
