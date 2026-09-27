@@ -22,14 +22,48 @@ from pathlib import Path
 
 MUSIC_DIR = Path(__file__).resolve().parents[2] / "music"
 
-# Routine id -> a filename in music/. Any extension afplay understands.
+# Routine id -> (filename in music/, seconds to skip). Any extension afplay
+# understands. The offset exists because songs open with an intro and a routine
+# wants the part people recognise; afplay cannot seek, so an offset means the
+# track is trimmed once into music/.cache/ and that copy is played.
 TRACKS = {
-    "party": "un_poco_loco",
+    "party": ("un_poco_loco", 35.0),
 }
 
 # How loud the music sits under Poco's voice, 0..1.
 VOLUME = 0.35
 DUCKED = 0.12
+
+
+def _trimmed(path: Path, start: float) -> Path:
+    """A copy of `path` with the first `start` seconds cut off, cached.
+
+    afplay has no seek, so the cut has to exist as a file. Written once and
+    reused; delete music/.cache to force it again.
+    """
+    import av
+
+    cache_dir = MUSIC_DIR / ".cache"
+    cache_dir.mkdir(exist_ok=True)
+    cache = cache_dir / f"{path.stem}@{start:g}.wav"
+    if cache.exists() and cache.stat().st_mtime >= path.stat().st_mtime:
+        return cache
+
+    with av.open(str(path)) as inp, av.open(str(cache), "w") as out:
+        stream = out.add_stream("pcm_s16le", rate=44100)
+        stream.layout = "stereo"
+        resampler = av.AudioResampler(format="s16", layout="stereo", rate=44100)
+        inp.seek(int(start * av.time_base))
+        for frame in inp.decode(audio=0):
+            if frame.time is not None and frame.time < start:
+                continue
+            frame.pts = None
+            for chunk in resampler.resample(frame):
+                for packet in stream.encode(chunk):
+                    out.mux(packet)
+        for packet in stream.encode(None):
+            out.mux(packet)
+    return cache
 
 
 def find_track(name: str) -> Path | None:
@@ -56,9 +90,17 @@ class Music:
 
     def play(self, track: str, listener=None, loop: bool = True) -> bool:
         """Start a track. Returns False if there is no such file."""
-        path = find_track(TRACKS.get(track, track))
+        entry = TRACKS.get(track, track)
+        name, start = entry if isinstance(entry, tuple) else (entry, 0.0)
+        path = find_track(name)
         if path is None:
             return False
+        if start:
+            try:
+                path = _trimmed(path, start)
+            except Exception as exc:
+                print(f"  [music] could not skip to {start:g}s ({exc}); "
+                      f"playing from the beginning", flush=True)
         self.stop()
         with self._lock:
             seconds = self._length(path)
