@@ -76,13 +76,18 @@ class SocialContext:
         turn = ctx.add_utterance(utterance)
     """
 
-    def __init__(self, history: int = 8, suggest_cooldown: float = 20.0):
+    def __init__(self, history: int = 8, suggest_cooldown: float = 0.0):
         """
         history:          turns kept for the LLM. Enough for the thread of a
                           conversation without burying the present moment.
-        suggest_cooldown: minimum gap between Poco's suggestions. A robot that
-                          comments on every sentence is noise, and the person
-                          it is helping is already managing a conversation.
+        suggest_cooldown: minimum gap between Poco's suggestions. Off by
+                          default: waiting is indistinguishable from being
+                          broken, and it was making Poco look dead for 20-30
+                          seconds whenever Whisper misheard his name and the
+                          direct-address bypass missed. Raise it if he turns
+                          out to chatter over real conversations - the quiet
+                          comes from the prompt preferring silence, not from
+                          a timer.
         """
         self.history = history
         self.suggest_cooldown = suggest_cooldown

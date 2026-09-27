@@ -39,7 +39,7 @@ class Session:
         mic: str = MIC,
         model: str = "base.en",
         effort: str = "low",
-        cooldown: float = 20.0,
+        cooldown: float = 0.0,
         use_memory: bool = False,
     ):
         self.on_event = on_event

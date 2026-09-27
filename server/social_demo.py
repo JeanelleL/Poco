@@ -54,8 +54,8 @@ def main() -> None:
     ap.add_argument("--model", default="base.en")
     ap.add_argument("--seconds", type=float)
     ap.add_argument("--headless", action="store_true")
-    ap.add_argument("--cooldown", type=float, default=20.0,
-                    help="minimum gap between Poco's suggestions")
+    ap.add_argument("--cooldown", type=float, default=0.0,
+                    help="minimum seconds between Poco's suggestions; 0 = none")
     ap.add_argument("--no-llm", action="store_true",
                     help="build the context but do not call Claude")
     ap.add_argument("--effort", default="low", help="low / medium / high")

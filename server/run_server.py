@@ -26,7 +26,8 @@ def main() -> None:
     ap.add_argument("--memory", action="store_true",
                     help="remember the friend between sessions")
     ap.add_argument("--effort", default="low", help="low / medium / high")
-    ap.add_argument("--cooldown", type=float, default=20.0)
+    ap.add_argument("--cooldown", type=float, default=0.0,
+                    help="minimum seconds between suggestions; 0 = none")
     ap.add_argument("--gentle", action="store_true")
     args = ap.parse_args()
 

@@ -26,6 +26,11 @@ SAMPLE_RATE = 24000  # pcm_24000: raw int16, so it plays without a decoder
 # Covers the tail of the room's reverb.
 ECHO_TAIL = 0.4
 
+# Worst-case clip length, used to deafen the microphone before a streamed clip
+# whose duration is not known until it ends. Shortened to the real length the
+# moment the stream finishes.
+MAX_CLIP_SECONDS = 30.0
+
 # v3 acts on inline tags. Poco is a robot penguin for children, so the delivery
 # carries as much as the words - the tag is taken from the feeling Poco reads in
 # the friend, not from the feeling Poco is describing.
@@ -114,24 +119,64 @@ class Voice:
         return audio, latency, len(line)
 
     def say(self, text: str, emotion: str | None = None, listener=None) -> Spoken:
-        """Speak a line, blocking until it finishes.
+        """Speak a line, starting as soon as the first audio arrives.
+
+        Streaming rather than rendering the whole clip first: waiting for the
+        last byte added about a second before Poco made any sound at all, which
+        on top of everything else made him feel slow to answer.
 
         `listener` is a SpeechListener to deafen while the clip plays, so Poco
         does not hear itself.
         """
         with self._lock:
-            audio, latency, chars = self.render(text, emotion)
-            duration = len(audio) / SAMPLE_RATE
+            line = text
+            if self.use_tags and emotion in EMOTION_TAGS:
+                line = f"{EMOTION_TAGS[emotion]} {text}"
+
+            t0 = time.monotonic()
+            chunks = self.client.text_to_speech.stream(
+                voice_id=self.voice_id,
+                text=line,
+                model_id=self.model,
+                output_format=f"pcm_{SAMPLE_RATE}",
+                voice_settings=self.settings,
+                # No optimize_streaming_latency: v3 rejects it outright.
+            )
+
+            # Deafen generously up front. The clip's length is unknown until the
+            # stream ends, and guessing short would let Poco hear his own tail.
             if listener is not None:
-                # Muted before the first sample, not after.
-                listener.mute_for(duration + ECHO_TAIL)
+                listener.mute_for(MAX_CLIP_SECONDS)
+
             self.speaking = True
+            first_audio = None
+            played = 0
+            stream = sd.RawOutputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16")
             try:
-                sd.play(audio, samplerate=SAMPLE_RATE)
-                sd.wait()
+                stream.start()
+                tail = b""
+                for chunk in chunks:
+                    if not chunk:
+                        continue
+                    if first_audio is None:
+                        first_audio = time.monotonic() - t0
+                    buf = tail + chunk
+                    # int16 frames must not be split across a write.
+                    usable = len(buf) - (len(buf) % 2)
+                    tail = buf[usable:]
+                    stream.write(buf[:usable])
+                    played += usable // 2
             finally:
+                stream.stop()
+                stream.close()
                 self.speaking = False
-            return Spoken(text=text, latency=latency, duration=duration, characters=chars)
+                duration = played / SAMPLE_RATE
+                if listener is not None:
+                    # Now the real length is known, release the microphone at
+                    # the right moment rather than the worst case.
+                    listener.mute_for(ECHO_TAIL)
+            return Spoken(text=text, latency=first_audio or (time.monotonic() - t0),
+                          duration=duration, characters=len(line))
 
     def say_async(self, text: str, emotion: str | None = None, listener=None) -> threading.Thread:
         """Speak without blocking the caller's loop."""
