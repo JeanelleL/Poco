@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useApp } from '../app/AppProvider';
 import { LedMatrix } from '../poco/LedMatrix';
 import { ChunkyButton } from '../ui/ChunkyButton';
@@ -33,10 +33,62 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
   const origin = tile.custom ? (tile.custom.replaces ? ' · edited' : ' · yours') : '';
   const belly = { pattern: tile.pattern, color: tile.color };
 
+  // Act it out runs the whole tile, not just its first line. The lines are a
+  // sequence - name it, notice it, why, what helps, ask - and stopping after
+  // the first one leaves the teaching half done.
+  const [running, setRunning] = useState(false);
+  const timer = useRef<number>();
+  const clear = () => window.clearTimeout(timer.current);
+  useEffect(() => clear, []);
+
+  // Stop Poco (anywhere) ends the run.
+  const seenStop = useRef(poco.stopId);
+  useEffect(() => {
+    if (poco.stopId === seenStop.current) return;
+    seenStop.current = poco.stopId;
+    clear();
+    setRunning(false);
+  }, [poco.stopId]);
+
+  /**
+   * How long to leave a line before the next one.
+   *
+   * Has to cover the half second before Poco's voice starts as well as the
+   * speech itself, and then a beat on top - a child being taught a feeling
+   * needs a moment to take each line in, and lines running together is worse
+   * than a pause. Measured against the real voice: this leaves about 0.7s of
+   * quiet after each line.
+   */
+  const lineMs = (text: string) => 1500 + text.length * 65;
+
   const actOut = () => {
-    play(tile.move, tile.color, tile.pattern, tile.lines[0]?.text);
+    clear();
+    if (running) {
+      setRunning(false);
+      return;
+    }
+    const lines = tile.lines;
+    if (lines.length === 0) {
+      play(tile.move, tile.color, tile.pattern);
+      return;
+    }
+    setRunning(true);
+    play(tile.move, tile.color, tile.pattern, lines[0].text);
     setSaid(0);
     setPulse((n) => n + 1);
+
+    const next = (i: number) => {
+      if (i >= lines.length) {
+        setRunning(false);
+        return;
+      }
+      // The movement only happens once, at the start; the rest are lines.
+      say(lines[i].text, belly);
+      setSaid(i);
+      setPulse((n) => n + 1);
+      timer.current = window.setTimeout(() => next(i + 1), lineMs(lines[i].text));
+    };
+    timer.current = window.setTimeout(() => next(1), lineMs(lines[0].text));
   };
 
   return (
@@ -74,9 +126,9 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
               ))}
             </ul>
           )}
-          <ChunkyButton className="act-btn" onClick={actOut}>
+          <ChunkyButton className="act-btn" variant={running ? 'secondary' : 'primary'} onClick={actOut}>
             <PlayIcon />
-            Act it out
+            {running ? 'Stop' : 'Act it out'}
           </ChunkyButton>
         </div>
       </div>
