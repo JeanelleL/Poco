@@ -44,8 +44,10 @@ ECHO_TAIL = 0.4
 # moment the stream finishes.
 MAX_CLIP_SECONDS = 30.0
 
-# Slack after the last sample is due, to cover the device's own buffering.
-DRAIN_PAD = 0.2
+# Silence written after the last sample, on top of the device's own reported
+# output latency, so the real audio is pushed all the way out of the speaker
+# before the stream closes.
+DRAIN_PAD = 0.3
 
 # v3 acts on inline tags. Poco is a robot penguin for children, so the delivery
 # carries as much as the words - the tag is taken from the feeling Poco reads in
@@ -177,7 +179,6 @@ class Voice:
             first_audio = None
             played = 0
             stream = self._open_stream()
-            playing_since = None
             try:
                 stream.start()
                 tail = b""
@@ -186,7 +187,6 @@ class Voice:
                         continue
                     if first_audio is None:
                         first_audio = time.monotonic() - t0
-                        playing_since = time.monotonic()
                     buf = tail + chunk
                     # int16 frames must not be split across a write.
                     usable = len(buf) - (len(buf) % 2)
@@ -198,14 +198,20 @@ class Voice:
                     # drop it, so the buffer ends on a frame boundary.
                     stream.write(tail + b"\x00")
                     played += 1
+                if played:
+                    # Push the last word out of the speaker. Writing it only
+                    # means PortAudio has it queued, and the device holds more
+                    # still - stopping there cut the final syllable off every
+                    # sentence. Timing it with a clock from the first chunk was
+                    # not enough either: the stream arrives in bursts, every gap
+                    # between them plays as silence and pushes the real end
+                    # later than the clock thinks. Silence behind the audio,
+                    # sized to the device's own latency, cannot come out before
+                    # the audio does.
+                    pad = int((max(stream.latency, 0.0) + DRAIN_PAD) * SAMPLE_RATE)
+                    stream.write(b"\x00\x00" * pad)
             finally:
-                # Wait for the audio to actually come out of the speaker.
-                # Writing the last chunk only means PortAudio has it queued, and
-                # stopping here cut the final syllable off every sentence.
-                if playing_since is not None:
-                    left = (played / SAMPLE_RATE) - (time.monotonic() - playing_since)
-                    if left > 0:
-                        time.sleep(left + DRAIN_PAD)
+                # stop() plays out everything queued; abort() would drop it.
                 stream.stop()
                 stream.close()
                 self.speaking = False

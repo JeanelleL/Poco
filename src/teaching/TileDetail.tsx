@@ -61,6 +61,20 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
    */
   const lineMs = (text: string) => 1500 + text.length * 65;
 
+  /** Say lines from `i` onward, one after another. */
+  const runFrom = (i: number) => {
+    const lines = tile.lines;
+    if (i >= lines.length) {
+      setRunning(false);
+      return;
+    }
+    // The movement happens once, at the start; the rest are lines.
+    say(lines[i].text, belly);
+    setSaid(i);
+    setPulse((n) => n + 1);
+    timer.current = window.setTimeout(() => runFrom(i + 1), lineMs(lines[i].text));
+  };
+
   const actOut = () => {
     clear();
     if (running) {
@@ -76,20 +90,20 @@ export function TileDetail({ id, go }: { id: string; go: Go }) {
     play(tile.move, tile.color, tile.pattern, lines[0].text);
     setSaid(0);
     setPulse((n) => n + 1);
-
-    const next = (i: number) => {
-      if (i >= lines.length) {
-        setRunning(false);
-        return;
-      }
-      // The movement only happens once, at the start; the rest are lines.
-      say(lines[i].text, belly);
-      setSaid(i);
-      setPulse((n) => n + 1);
-      timer.current = window.setTimeout(() => next(i + 1), lineMs(lines[i].text));
-    };
-    timer.current = window.setTimeout(() => next(1), lineMs(lines[0].text));
+    timer.current = window.setTimeout(() => runFrom(1), lineMs(lines[0].text));
   };
+
+  // Tapping a tile in the grid acts it out and says its first line, then opens
+  // this page. Carry on through the rest rather than stopping after one - the
+  // lines are a sequence, and the tap is a request for the whole thing.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || said !== 0 || tile.lines.length < 2) return;
+    started.current = true;
+    setRunning(true);
+    timer.current = window.setTimeout(() => runFrom(1), lineMs(tile.lines[0].text));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

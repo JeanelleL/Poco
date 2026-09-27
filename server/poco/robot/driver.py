@@ -40,13 +40,16 @@ for _part in ("servos", "led_matrix"):
 # Poco breathing. Each part drifts on its own slow sine, and the periods are
 # deliberately not multiples of each other - 9, 11, 13 and 17 seconds - so the
 # combination never quite repeats and it reads as alive rather than as a loop.
-# The feet and the two arms run half a cycle apart, which gives a gentle rock
-# rather than both sides moving together.
+# The feet rock against each other - one up while the other goes down. Their
+# servos are mounted mirrored ("up" is a low pulse on the left foot and a high
+# one on the right, see servo_limits.LIMITS), so the same phase in pulse terms
+# is opposite phase on the robot. Half a cycle apart would lift both together.
+# The two arms run half a cycle apart.
 #
 # name: (amplitude in microseconds, period in seconds, phase 0..1)
 IDLE_MOTION = {
     "left_leg": (130, 5.0, 0.0),
-    "right_leg": (130, 5.0, 0.5),
+    "right_leg": (130, 5.0, 0.0),
     "head_roll": (140, 7.0, 0.25),
     "left_arm_pitch": (110, 9.0, 0.0),
     "right_arm_pitch": (110, 9.0, 0.5),
@@ -411,7 +414,13 @@ class Robot:
                         else modes.frame(mode, t))
                 self._matrix.draw([[tuple(int(c * scale) for c in px) for px in row]
                                    for row in rows])
-                time.sleep(1 / 20)   # 20fps is plenty for a slow orb
+                # The servos and the belly share one serial line, and the
+                # motion is already sending at 100Hz with a round trip costing
+                # 8ms - there is no headroom. Every belly frame is a servo
+                # frame dropped, which looks like jerky movement. These are
+                # slow pictures: a twelve second breath at 4fps is still fifty
+                # frames, and the motion gets the line back.
+                time.sleep(1 / (4 if self._moving.is_set() else 10))
         except Exception as exc:
             self._note_failure(f"animate {mode}", exc)
 
