@@ -20,6 +20,7 @@ started is no longer a reaction to anything.
 
 from __future__ import annotations
 
+import math
 import sys
 import threading
 import time
@@ -34,6 +35,28 @@ for _part in ("servos", "led_matrix"):
     _dir = REPO_ROOT / _part
     if _dir.is_dir() and str(_dir) not in sys.path:
         sys.path.append(str(_dir))
+
+
+# Poco breathing. Each part drifts on its own slow sine, and the periods are
+# deliberately not multiples of each other - 9, 11, 13 and 17 seconds - so the
+# combination never quite repeats and it reads as alive rather than as a loop.
+# The feet and the two arms run half a cycle apart, which gives a gentle rock
+# rather than both sides moving together.
+#
+# name: (amplitude in microseconds, period in seconds, phase 0..1)
+IDLE_MOTION = {
+    "left_leg": (70, 9.0, 0.0),
+    "right_leg": (70, 9.0, 0.5),
+    "head_roll": (80, 11.0, 0.25),
+    "left_arm_pitch": (55, 13.0, 0.0),
+    "right_arm_pitch": (55, 13.0, 0.5),
+    "left_arm_roll": (45, 17.0, 0.3),
+    "right_arm_roll": (45, 17.0, 0.8),
+}
+
+# How long each idle glide takes. Also the longest a gesture can be kept
+# waiting, since the idle is only interrupted between glides.
+IDLE_STEP = 0.6
 
 
 class Robot:
@@ -57,11 +80,15 @@ class Robot:
         amount: float = 1.0,
         brightness: int = 30,
         quiet: bool = False,
+        idle: bool = True,
     ):
         """
         speed/amount: passed to Poco - 0.7 and 0.6 are the app's "Gentle".
         brightness:   0..255 for the belly. 30 is bright enough through fabric.
         quiet:        stop printing what would have happened when not connected.
+        idle:         keep Poco gently moving whenever he is not doing anything
+                      else. A robot that is completely still between actions
+                      reads as switched off.
         """
         self.servo_port = servo_port
         self.led_port = led_port
@@ -80,6 +107,9 @@ class Robot:
         self._matrix = None
         self._show_face = None
 
+        self.idle = idle
+        self._idle_thread: threading.Thread | None = None
+        self._idle_stop = threading.Event()
         self._moves = ThreadPoolExecutor(max_workers=1, thread_name_prefix="servos")
         self._belly = ThreadPoolExecutor(max_workers=1, thread_name_prefix="belly")
         self._moving = threading.Event()
@@ -121,7 +151,52 @@ class Robot:
         self._connect_servos()
         if not (self.servos_ready or self.belly_ready):
             self._say("no robot found - running without one")
+        if self.idle and self.servos_ready:
+            self.start_idle()
         return self.servos_ready or self.belly_ready
+
+    # -- never quite still --------------------------------------------------
+
+    def start_idle(self) -> None:
+        if self._idle_thread is not None or not self.servos_ready:
+            return
+        self._idle_stop.clear()
+        self._idle_thread = threading.Thread(target=self._idle_loop, daemon=True)
+        self._idle_thread.start()
+        self._say("idle motion on")
+
+    def stop_idle(self) -> None:
+        self._idle_stop.set()
+        if self._idle_thread is not None:
+            self._idle_thread.join(timeout=IDLE_STEP * 3)
+            self._idle_thread = None
+
+    def _idle_loop(self) -> None:
+        home = self._pm.home_pose()
+        parts = {n: v for n, v in IDLE_MOTION.items() if n in home}
+        if not parts:
+            self._say("no home positions recorded - idle motion off")
+            return
+        while not self._idle_stop.is_set():
+            if self._moving.is_set():
+                # A real gesture owns the servos; it also ends at home, so the
+                # drift picks up again from wherever it left him.
+                time.sleep(0.15)
+                continue
+            try:
+                t = time.monotonic()
+                targets = {
+                    name: self._pm.clamp(
+                        name,
+                        home[name] + amp * math.sin(2 * math.pi * (t / period + phase)),
+                    )
+                    for name, (amp, period, phase) in parts.items()
+                }
+                self._poco.move(targets, IDLE_STEP)
+            except Exception as exc:
+                # Idle drift is not worth taking the robot down for.
+                self.last_error = f"idle: {exc}"
+                time.sleep(1.0)
 
     def _connect_servos(self) -> None:
         try:
@@ -340,6 +415,7 @@ class Robot:
 
     def stop(self) -> None:
         """Go limp and dark. Matches the app's Stop Poco."""
+        self.stop_idle()
         try:
             if self._poco is not None:
                 self._poco.release()

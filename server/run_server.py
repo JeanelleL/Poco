@@ -29,12 +29,15 @@ def main() -> None:
     ap.add_argument("--cooldown", type=float, default=0.0,
                     help="minimum seconds between suggestions; 0 = none")
     ap.add_argument("--gentle", action="store_true")
+    ap.add_argument("--no-idle", action="store_true",
+                    help="hold still between actions instead of drifting")
     args = ap.parse_args()
 
     robot = None
     if not args.no_robot:
         robot = Robot(speed=0.7 if args.gentle else 1.0,
-                      amount=0.6 if args.gentle else 1.0)
+                      amount=0.6 if args.gentle else 1.0,
+                      idle=not args.no_idle)
         robot.connect()
     voice = None if args.no_voice else Voice()
 
