@@ -73,50 +73,82 @@ driven by the server. The C270 webcam is away being mounted.
 backend; a move to Windows or a Pi means replacing that backend and redoing
 device selection (section 9).
 
-## 3. Run
+## 3. Setting it up
 
-### The laptop server
+Poco is three things that have to find each other: the **robot** plugged into
+the **laptop** by USB, and the **iPad** talking to the laptop over Wi-Fi.
 
-Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). Models download on
-first use — roughly 160 MB for the defaults (YuNet 228 KB in `models/`,
-HSEmotion 15 MB in `~/.hsemotion`, Whisper `base.en` ~145 MB in the Hugging Face
-cache). Trying other Whisper sizes adds a few hundred MB each.
+### Once, on the laptop
+
+Requires Python 3.12, [uv](https://docs.astral.sh/uv/) and Node 18+.
+
+```sh
+uv sync --project server     # python side
+npm install && npm run build # the app the laptop will serve
+```
+
+Put the API keys in `server/.env` (gitignored, `chmod 600`):
+
+```
+ANTHROPIC_API_KEY=...
+ELEVENLABS_API_KEY=...
+BACKBOARD_API_KEY=...        # only needed with --memory
+```
+
+Models download on first use, about 160 MB.
+
+### Every time
+
+**1. Plug the robot in.** One USB cable from the Arduino to the laptop, and the
+C270 webcam. Check both are seen:
+
+```sh
+ls /dev/cu.usbmodem*                       # the Arduino
+cd server && uv run emotion_demo.py --list-cameras
+```
+
+The C270 takes camera index 0 when plugged in; without it index 0 is the
+MacBook's own camera, so `poco/devices.py` needs checking after any change. The
+servos need their own 5-6V supply on the shield's screw terminal - the Uno's USB
+rail cannot drive eleven of them and will brown out.
+
+**2. Put the laptop and the iPad on the same Wi-Fi.** Not just any two networks:
+they must be able to reach each other. School and venue Wi-Fi usually blocks
+device-to-device traffic, in which case use the laptop's hotspot and join the
+iPad to that.
+
+**3. Start the server.**
+
+```sh
+cd server && uv run run_server.py
+```
+
+It prints the address to open. Add `--memory` for Poco to remember people
+between sessions, `--no-voice` to keep him silent, `--no-robot` to run without
+hardware, `--gentle` for slower, smaller movements.
+
+**4. Install the app on the iPad.** Open the address the server printed -
+`http://<laptop-name>.local:8765` - in Safari, then Share -> **Add to Home
+Screen**. It then launches full screen from its own icon, and finds the laptop
+by name, so nothing has to be typed again. There is no Xcode step: the laptop
+serves the app, so the socket connects back to the same origin.
+
+**5. Check it.** Open `http://<laptop-name>.local:8765/debug` on the laptop
+while the iPad runs the app. It shows the microphone level, what the camera
+reads, what was transcribed and what Poco said, updating five times a second.
+That page is the first thing to look at when something seems wrong.
+
+### Running pieces on their own
 
 ```sh
 cd server
-uv sync
-uv run social_demo.py                 # the whole thing: watch, listen, think, speak
-uv run social_demo.py --no-llm        # perception only, no API calls, no spend
-uv run social_demo.py --no-voice      # think but stay silent
-uv run social_demo.py --memory        # remember the friend between sessions (section 10)
-```
-
-Individual pieces, useful when one of them is misbehaving:
-
-```sh
-uv run emotion_demo.py --list-cameras # snapshot every camera to identify them
-uv run emotion_demo.py                # face + emotion only, with live tuning keys
-uv run speech_demo.py                 # microphone + transcription only
-uv run tune_sweep.py session.mp4      # sweep detection thresholds (section 5)
-```
-
-Keys live in `server/.env` (gitignored, mode 600): `ANTHROPIC_API_KEY`,
-`ELEVENLABS_API_KEY`, `BACKBOARD_API_KEY`.
-
-### The iPad app
-
-```sh
-npm install
-npm run dev        # vite --host, so the iPad can reach it on the same Wi-Fi
-npm run build      # typecheck + production build
-npx cap open ios   # the installed-app build (needs Xcode)
-```
-
-### The robot
-
-```sh
-cd servos     && python play.py happy      # one gesture
-cd led_matrix && python modes.py           # belly faces
+uv run social_demo.py                 # the whole loop, no iPad
+uv run social_demo.py --no-llm        # perception only, no API calls
+uv run emotion_demo.py                # face + emotion, with live tuning keys
+uv run speech_demo.py                 # microphone + transcription
+uv run tune_sweep.py session.mp4      # sweep thresholds against a recording
+cd ../servos && python play.py happy  # one gesture
+cd ../led_matrix && python emotions.py  # cycle the belly faces
 ```
 
 ## 4. The contract with the iPad app
