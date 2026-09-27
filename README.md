@@ -151,6 +151,46 @@ cd ../servos && python play.py happy  # one gesture
 cd ../led_matrix && python emotions.py  # cycle the belly faces
 ```
 
+## 3b. Demo day
+
+```sh
+cd server && uv run demo_check.py
+```
+
+Checks the board, the camera, the microphone, the speaker, the keys, Claude and
+the network, and says what to fix. Run it before presenting rather than finding
+out in front of people.
+
+Then, in order:
+
+1. `cd server && uv run run_server.py --memory`
+2. On the iPad, open the Poco icon (or Safari to the address it printed)
+3. Leave `/debug` open on the laptop - it shows whether Poco is hearing anything
+
+**Showing Play mode** (a child talking to Poco): Fun tab -> Play with Poco ->
+Start listening. Say "Poco, can you dance?" - he answers out loud and dances.
+Ask him to show a feeling and he teaches it. This is the mode that demos well:
+he always replies.
+
+**Showing Social mode** (Poco coaching a conversation): Interacting tab ->
+Start, and stay on that screen. Have someone sit in front of Poco and talk
+about something they are worried about, pausing properly between sentences.
+Poco waits for a real stop and says one quiet thing to the person beside him.
+He is mostly silent by design - that is the point, not a fault - so use **Ask
+Poco** if you need him to say something at a particular moment.
+
+**Things that have actually gone wrong**, in likelihood order:
+
+- *Poco unplugged and replugged.* He recovers on his own now, within three
+  commands, but it takes a few seconds. Do not replug during the demo.
+- *Nothing audible.* The speaker follows `SPEAKER` in `poco/devices.py`; check
+  the system volume is not at 25, which is where it was found once.
+- *Poco says nothing in Social mode.* Usually correct. Use Ask Poco.
+- *The iPad cannot find the laptop.* Venue Wi-Fi blocking device-to-device
+  traffic. Use the laptop's hotspot - test this before the day.
+- *Gestures stop halfway or the board keeps reconnecting.* The servo supply is
+  sagging. That is the screw terminal, not the software.
+
 ## 4. The contract with the iPad app
 
 The app talks to Poco through one interface, `src/poco/pocoClient.ts`. **That
