@@ -33,11 +33,20 @@ WARMUP_SECONDS = 2.5
 # into the one question that was actually asked. It costs this much latency and
 # is worth it: answering half a sentence twice is slower in practice than
 # answering the whole one once.
-SETTLE_SECONDS = 0.6
+# Social mode waits for a real stop, not a breath. Someone explaining
+# something pauses constantly, and jumping into those pauses is talking over
+# them - which is the one thing a robot standing next to a conversation must
+# not do.
+SETTLE_SECONDS = 1.6
 
 # Play mode is a back-and-forth with a child, where being quick matters more
 # than merging a split sentence, so it waits less.
 PLAY_SETTLE = 0.35
+
+# After Poco suggests something in social mode, he holds off. A long answer
+# arrives as many utterances, and without this each one earned its own
+# suggestion - a stream of advice about a single thing somebody said.
+SOCIAL_QUIET = 10.0
 
 
 class Session:
@@ -52,7 +61,7 @@ class Session:
         mic: str = MIC,
         model: str = "base.en",
         effort: str = "low",
-        cooldown: float = 0.0,
+        cooldown: float | None = None,
         use_memory: bool = False,
         mode: str = "social",
     ):
@@ -63,9 +72,13 @@ class Session:
         self.mic = mic
         self.model = model
         self.effort = effort
-        self.cooldown = cooldown
+        # Social mode wants a gap between suggestions; play mode is a
+        # back-and-forth and wants none.
+        self.cooldown = (SOCIAL_QUIET if mode == "social" else 0.0) \
+            if cooldown is None else cooldown
         self.use_memory = use_memory
         self.mode = mode
+        self.asked = threading.Event()   # the adult pressed "Ask Poco"
 
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -134,7 +147,9 @@ class Session:
                 self._coaches[self.mode] = Coach(effort=self.effort, mode=self.mode)
             detector = self._detector
             listener = SpeechListener(model_name=self.model, device=self.mic)
-            ctx = SocialContext(suggest_cooldown=self.cooldown)
+            ctx = SocialContext(
+                suggest_cooldown=(SOCIAL_QUIET if self.mode == "social" else 0.0)
+            )
             coach = self._coaches[self.mode]
             # Separate stores per mode. Social mode remembers other people's
             # friends; play mode remembers the child Poco belongs to. Mixing
@@ -200,10 +215,17 @@ class Session:
                 # for it, and nothing retried. Two questions in a row meant the
                 # second was answered late, with the answer to the first.
                 settle = SETTLE_SECONDS if self.mode == "social" else PLAY_SETTLE
-                if (pending is None
-                        and last_heard
-                        and now - last_heard >= settle
-                        and ctx.ready_to_suggest(now)):
+                # Never start thinking while they are still talking. The
+                # endpointer has not cut yet, so anything Poco said now would
+                # land on top of them mid-sentence.
+                quiet = not listener.speaking and now - last_heard >= settle
+                asked = self.asked.is_set()
+                if pending is None and last_heard and (asked or quiet) \
+                        and (asked or ctx.ready_to_suggest(now)):
+                    self.asked.clear()
+                    self.thinking = True
+                    pending = pool.submit(self._think, coach, ctx, memory, now)
+                    ctx.mark_suggested(now)
                     self.thinking = True
                     pending = pool.submit(self._think, coach, ctx, memory, now)
                     ctx.mark_suggested(now)
@@ -254,6 +276,13 @@ class Session:
             return
         if self.robot is not None:
             self.robot.perform(suggestion.gesture, suggestion.belly)
+        if suggestion.say and listener is not None and listener.speaking:
+            # They started again while Poco was thinking. The belly and the
+            # movement still happen; the words wait for another opening rather
+            # than cutting across them.
+            print(f"  [{suggestion.kind}] held back (they are talking): "
+                  f"{suggestion.say}", flush=True)
+            return
         if suggestion.say and self.voice is not None:
             # The listener is handed over so Poco's microphone is deaf while its
             # own voice is in the room.

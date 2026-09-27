@@ -179,6 +179,13 @@ class PocoServer:
                     # The app's slider is 0..100; the matrix wants 0..255.
                     self.robot.set_brightness(round(brightness * 255 / 100))
 
+        elif op == "suggest":
+            # The adult asked for help now, so it skips the wait and the gap
+            # between suggestions - but still not while the friend is talking.
+            if self.session.running:
+                self.session.asked.set()
+                print("  asked for a suggestion", flush=True)
+
         elif op == "stop":
             if self.robot is not None:
                 self.robot.stop()

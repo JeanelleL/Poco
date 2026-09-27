@@ -225,6 +225,12 @@ export interface PocoClient {
    * Omitted means 'social', which is what this did before modes existed.
    */
   setInteracting(on: boolean, mode?: PocoMode): void;
+  /**
+   * Ask Poco for a suggestion now, in Social Mode. He normally waits for a
+   * real pause and leaves a gap between suggestions; this skips both. He
+   * still will not speak over the person who is talking.
+   */
+  askForSuggestion(): void;
   /** Listen for what Poco reports. Returns an unsubscribe function. */
   onEvent(listener: (e: PocoEvent) => void): () => void;
 }
@@ -287,6 +293,10 @@ export class MockPocoClient implements PocoClient {
 
   // Pretends Poco noticed a feeling every 5–9 s, saying something about it
   // roughly half the time (the real robot filters its own chatter), with a reason either way.
+  askForSuggestion(): void {
+    console.debug('[poco] askForSuggestion');
+  }
+
   setInteracting(on: boolean, mode: PocoMode = 'social'): void {
     console.debug('[poco] setInteracting', on, mode);
     window.clearTimeout(this.interactTimer);

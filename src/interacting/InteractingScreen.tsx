@@ -145,9 +145,16 @@ export function InteractingScreen() {
           <p className="int-status-label">{running ? 'On' : 'Paused'}</p>
           <h2 className="int-status-title">{running ? 'Poco is interacting' : 'Poco is paused'}</h2>
           <p className="int-status-hint">
-            {running ? 'Watching, listening and responding…' : 'Tap Start and Poco will join in.'}
+            {running
+              ? 'Watching and listening. He waits for a pause, and says one thing at a time — tap Ask Poco if you want help now.'
+              : 'Tap Start and Poco will join in.'}
           </p>
         </div>
+        {running && (
+          <ChunkyButton onClick={() => pocoClient.askForSuggestion()}>
+            Ask Poco
+          </ChunkyButton>
+        )}
         {running ? (
           <ChunkyButton variant="secondary" onClick={pause}>
             Pause
