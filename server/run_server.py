@@ -26,6 +26,8 @@ def main() -> None:
     ap.add_argument("--memory", action="store_true",
                     help="remember the friend between sessions")
     ap.add_argument("--effort", default="low", help="low / medium / high")
+    ap.add_argument("--mode", default="social", choices=("social", "play"),
+                    help="what a bare interacting=true means; the app can say")
     ap.add_argument("--cooldown", type=float, default=0.0,
                     help="minimum seconds between suggestions; 0 = none")
     ap.add_argument("--gentle", action="store_true")
@@ -43,7 +45,7 @@ def main() -> None:
 
     server = PocoServer(port=args.port, robot=robot, voice=voice,
                         effort=args.effort, cooldown=args.cooldown,
-                        use_memory=args.memory)
+                        use_memory=args.memory, mode=args.mode)
     print(f"  open http://{socket.gethostname()}:{args.port} on the iPad")
     try:
         asyncio.run(server.run())

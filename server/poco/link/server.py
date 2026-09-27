@@ -143,6 +143,7 @@ class PocoServer:
             "servos": bool(self.robot and self.robot.servos_ready),
             "belly": bool(self.robot and self.robot.belly_ready),
             "interacting": self.session.running,
+            "mode": self.session.mode,
         }
 
     async def _command(self, connection: ServerConnection, msg: dict) -> None:
@@ -184,13 +185,22 @@ class PocoServer:
 
         elif op == "interacting":
             if msg.get("on"):
-                print("  Social Mode: start", flush=True)
+                # "social" coaches a conversation between two other people;
+                # "play" is a conversation with Poco. Default social: an app
+                # that does not know about modes gets what it always got.
+                mode = msg.get("mode", "social")
+                if mode not in ("social", "play"):
+                    mode = "social"
+                if self.session.running and self.session.mode != mode:
+                    self.session.stop("switching mode")
+                self.session.mode = mode
+                print(f"  {mode} mode: start", flush=True)
                 self.session.start()
             else:
                 # Normal, not a fault: the app pauses Poco whenever the
                 # Interacting screen goes away, so switching tabs stops him.
-                print("  Social Mode: stop (the app asked)", flush=True)
-                self.session.stop("the app left the Social screen")
+                print(f"  {self.session.mode} mode: stop (the app asked)", flush=True)
+                self.session.stop("the app left the screen")
             await self.broadcast(self._ready())
 
         else:

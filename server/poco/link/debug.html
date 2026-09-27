@@ -30,7 +30,8 @@
 <h1>POCO — LIVE <span id="conn">connecting…</span></h1>
 
 <div style="margin-bottom:16px">
-  <button onclick="send({op:'interacting',on:true})">Start Social Mode</button>
+  <button onclick="send({op:'interacting',on:true,mode:'social'})">Start Social</button>
+  <button onclick="send({op:'interacting',on:true,mode:'play'})">Start Play</button>
   <button onclick="send({op:'interacting',on:false})">Stop</button>
   <button onclick="send({op:'stop'})">Stop Poco</button>
 </div>
@@ -106,10 +107,10 @@ function render(s) {
     : t.faceSeen ? Math.round(t.faceConfidence * 100) + '% confident'
     : 'nobody in frame';
   $('fps').textContent = t.running
-    ? `${t.fps} fps` +
+    ? `${t.mode} · ${t.fps} fps` +
       (t.thinking ? ' · thinking…'
         : t.nextIn > 0 ? ` · may speak in ${Math.ceil(t.nextIn)}s` : ' · ready to speak')
-    : 'Social Mode off';
+    : 'stopped';
   // Why it stopped matters more than that it stopped: leaving the Social tab
   // pauses Poco by design, and that is indistinguishable from a fault here.
   $('why').textContent = t.error ? 'error: ' + t.error

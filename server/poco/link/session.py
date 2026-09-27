@@ -35,6 +35,10 @@ WARMUP_SECONDS = 2.5
 # answering the whole one once.
 SETTLE_SECONDS = 0.6
 
+# Play mode is a back-and-forth with a child, where being quick matters more
+# than merging a split sentence, so it waits less.
+PLAY_SETTLE = 0.35
+
 
 class Session:
     """One run of Social Mode."""
@@ -50,6 +54,7 @@ class Session:
         effort: str = "low",
         cooldown: float = 0.0,
         use_memory: bool = False,
+        mode: str = "social",
     ):
         self.on_event = on_event
         self.robot = robot
@@ -60,6 +65,7 @@ class Session:
         self.effort = effort
         self.cooldown = cooldown
         self.use_memory = use_memory
+        self.mode = mode
 
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -81,7 +87,7 @@ class Session:
         self.stopped_because: str | None = None   # why the last run ended
         self.phase = "stopped"            # stopped | starting | watching
         self._detector = None             # kept between runs; loading is slow
-        self._coach = None
+        self._coaches: dict = {}          # one per mode, both kept warm
         self.next_suggestion_in = 0.0     # seconds until Poco may speak again
 
     def start(self) -> None:
@@ -123,12 +129,12 @@ class Session:
             # exactly like the robot being broken.
             if self._detector is None:
                 self._detector = EmotionDetector()
-            if self._coach is None:
-                self._coach = Coach(effort=self.effort)
+            if self.mode not in self._coaches:
+                self._coaches[self.mode] = Coach(effort=self.effort, mode=self.mode)
             detector = self._detector
             listener = SpeechListener(model_name=self.model, device=self.mic)
             ctx = SocialContext(suggest_cooldown=self.cooldown)
-            coach = self._coach
+            coach = self._coaches[self.mode]
             memory = Memory() if self.use_memory else None
             listener.start()
 
@@ -183,9 +189,10 @@ class Session:
                 # conversation and then never asked about - no call was made
                 # for it, and nothing retried. Two questions in a row meant the
                 # second was answered late, with the answer to the first.
+                settle = SETTLE_SECONDS if self.mode == "social" else PLAY_SETTLE
                 if (pending is None
                         and last_heard
-                        and now - last_heard >= SETTLE_SECONDS
+                        and now - last_heard >= settle
                         and ctx.ready_to_suggest(now)):
                     self.thinking = True
                     pending = pool.submit(self._think, coach, ctx, memory, now)
@@ -256,6 +263,7 @@ class Session:
         return {
             "running": self.running,
             "phase": self.phase,
+            "mode": self.mode,
             "fps": round(self.fps, 1),
             "face": self.face,
             "faceConfidence": round(self.face_confidence, 2),
