@@ -114,6 +114,12 @@ class Robot:
         self._belly = ThreadPoolExecutor(max_workers=1, thread_name_prefix="belly")
         self._moving = threading.Event()
         self.last_error: str | None = None
+        # Consecutive serial failures. The board reboots when it is replugged
+        # or when the servo supply sags, and the handle we hold is then dead -
+        # every command times out and nothing recovers until the process is
+        # restarted, which is a poor way to lose a session.
+        self._fails = 0
+        self._reconnecting = threading.Lock()
 
     # -- state -------------------------------------------------------------
 
@@ -128,6 +134,38 @@ class Robot:
     @property
     def moving(self) -> bool:
         return self._moving.is_set()
+
+    def _note_failure(self, what: str, exc: Exception) -> None:
+        self.last_error = f"{what}: {exc}"
+        self._fails += 1
+        self._say(f"{what} failed: {exc}")
+        if self._fails >= 3:
+            self._reconnect()
+
+    def _reconnect(self) -> None:
+        """Re-open the board after it has gone away and come back."""
+        if not self._reconnecting.acquire(blocking=False):
+            return  # another thread is already doing it
+        try:
+            self._say("board stopped answering - reconnecting")
+            self.stop_idle()
+            try:
+                if self._board is not None:
+                    self._board.close()
+            except Exception:
+                pass
+            self._board = None
+            self._poco = self._link = self._matrix = None
+            time.sleep(2.0)  # the Uno reboots when the port is opened again
+            self._open_board()
+            self._connect_belly()
+            self._connect_servos()
+            self._fails = 0
+            if self.idle and self.servos_ready:
+                self.start_idle()
+            self._say(f"reconnected: servos={self.servos_ready} belly={self.belly_ready}")
+        finally:
+            self._reconnecting.release()
 
     def _say(self, message: str) -> None:
         if not self.quiet:
@@ -369,8 +407,7 @@ class Robot:
             ]
             self._matrix.draw(frame)
         except Exception as exc:
-            self.last_error = f"draw: {exc}"
-            self._say(f"draw failed: {exc}")
+            self._note_failure("draw", exc)
 
     def set_brightness(self, value: int) -> None:
         """0..255 for the belly. The app's comfort slider is 0..100."""
@@ -411,11 +448,11 @@ class Robot:
                 self._say(f"{move} needs poses recorded - skipped")
                 return
             self._poco.play(steps, self._poses)
+            self._fails = 0
         except Exception as exc:
             # A sagging servo supply reboots the Uno mid-gesture. Poco going
             # quiet is better than the conversation stopping.
-            self.last_error = f"play {move}: {exc}"
-            self._say(f"play {move} failed: {exc}")
+            self._note_failure(f"play {move}", exc)
         finally:
             self._moving.clear()
 
@@ -429,8 +466,7 @@ class Robot:
             # would wash the belly out.
             self._show_face(self._matrix, feeling)
         except Exception as exc:
-            self.last_error = f"show {feeling}: {exc}"
-            self._say(f"show {feeling} failed: {exc}")
+            self._note_failure(f"show {feeling}", exc)
 
     # -- stopping ----------------------------------------------------------
 
